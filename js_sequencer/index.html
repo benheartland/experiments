@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Javascript Sequencer</title>
+		<script src="sequencer.js" ></script>
+		<link rel="stylesheet" type="text/css" href="sequencer.css" />
+	</head>
+	<body onload="init()";>
+        <!-- div.full-body-overlay protects the whole window while dragging -->
+		<div id="full-body-overlay" ></div>
+        <!-- Basic user parameters -->
+		<div id="parameters">
+			<div><label for="barsPerCycle">Bars per cycle</label></div><input type="text" id="barsPerCycle">
+			<div><label for="beatsPerBar">Beats per bar</label></div><input type="text" id="beatsPerBar">
+			<div><label for="ticksPerBeat">Ticks per beat</label></div><input type="text" id="ticksPerBeat"><br />
+			<div><label for="bpm">BPM</label></div><input type="text" id="bpm">
+			<div><label for="inputVelocity">Input Velocity</label></div><input type="text" id="inputVelocity">
+		</div>
+        <!-- Transport bar -->
+		<div id="transport">
+			<input type="button" value="Start" onclick="startClock()" id="startButton" />
+			<input type="button" value="Stop" onclick="stopClock()" id="stopButton" />
+			<table id="clock">
+				<thead>
+					<tr>
+						<th>Cycle</th>
+						<th>Bar</th>
+						<th>Beat</th>
+						<th>Tick</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td id="clock_cycle"></td>
+						<td id="clock_bar"></td>
+						<td id="clock_beat"></td>
+						<td id="clock_tick"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+        <!-- Container for the sequencer grid. The grid is built in here by the Javascript -->
+		<div id="grid_container" />
+	</body>
+</html>

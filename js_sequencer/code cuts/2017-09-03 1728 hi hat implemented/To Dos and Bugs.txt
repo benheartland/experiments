@@ -1,0 +1,58 @@
+BUGS
+====
+
+TO IMPLEMENT
+============
+
+-> hi-hat - DONE
+
+-> option to stop after given number of cycles, or play indefinitely.
+
+-> preset save and recall
+
+-> velocity randomisation
+
+-> improvisation
+
+-> velocity to volume
+	-> input validation for inputVelocity field - DONE
+	-> visual feedback on velocity value (using colour of cell background and/or percentage of fill) DONE WITH COLOURS
+	-> ondrag velocity adjustment - DONE
+
+-> UI input for pseudo-constants:
+		barsPerCycle	- DONE
+		beatsPerBar		- DONE
+		ticksPerBeat	- DONE
+		inputVelocity	- DONE
+		bpm				- no realtime tempo change yet - must start and stop
+
+-> round-robin sample playback - DONE
+
+-> spacebar to stop/start - DONE
+
+-> input validation
+	-> for integer parameters - DONE
+
+DOCUMENTATION
+=============
+
+window object
+	html document object
+		head
+		body
+			grid object
+step array
+	step array children
+		actionList object
+
+intrument 						Object
+	name						string
+	note[]						Array of note Objects
+		note					Object
+			displayName			string
+			samplePointer		integer
+			sample[]			Array of AudioElements
+			addSample()			function
+			noteOn()			function
+			noteOff()			function
+	addNote()					function

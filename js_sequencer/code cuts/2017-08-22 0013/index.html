@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Javascript Sequencer</title>
+		<script src="sequencer.js" ></script>
+		<link rel="stylesheet" type="text/css" href="sequencer.css" />
+	</head>
+	<body onload = "javascript:init()";>
+		<div id="transport">
+			<input type="button" value="Start" onclick="javascript:startClock()" id="startButton" />
+			<input type="button" value="Stop" onclick="javascript:stopClock()" id="stopButton" />
+			<table id="clock">
+				<thead>
+					<tr>
+						<th>Cycle</th>
+						<th>Bar</th>
+						<th>Beat</th>
+						<th>Tick</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td id="clock_cycle"></td>
+						<td id="clock_bar"></td>
+						<td id="clock_beat"></td>
+						<td id="clock_tick"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<div id="grid_container">
+		</div>
+		<div>
+			<label>Input Velocity </label><input type="text" value="64" id="inputVelocity">
+		</div>
+	</body>
+</html>
