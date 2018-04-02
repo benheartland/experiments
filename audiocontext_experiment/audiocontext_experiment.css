@@ -1,4 +1,10 @@
-body {
-	background-color: #0F0F0F;
-	color: #EDEDED;
+table {
+	border: 1px solid black;
+	border-collapse: collapse;
+}
+
+th, td {
+	text-align: left;
+	border: 1px solid black;
+	padding: 0.5em;
 }
