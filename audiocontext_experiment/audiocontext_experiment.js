@@ -2,22 +2,27 @@
 const SAMPLERATE = 44100;
 const MAX_MASTER_VOLUME = 100;
 const DEFAULT_MASTER_VOLUME = 5;
-const OSCILLATOR_COUNT = 25;
-const SEMITONE_RATIO = Math.pow(2, 1/12);
-const REFERENCE_A_FREQUENCY = 440;
+const PITCH_DIVISIONS_PER_OCTAVE = 12; 			// normally 12 semitones per octave
+const PITCH_DIVISION_RATIO = 2 ** (1/PITCH_DIVISIONS_PER_OCTAVE);
+const REFERENCE_FREQUENCY = 440;				// Standard A = 440Hz
+const REFERENCE_NOTE_NUMBER = 69;				// MIDI A4 = 69
+const REFERENCE_OCTAVE_TOP_NOTE_NUMBER = REFERENCE_NOTE_NUMBER + PITCH_DIVISIONS_PER_OCTAVE;
 const DEFAULT_WAVEFORM = 'sine';
 // default envelope settings
 const DEFAULT_ATTACK_TIME = 0.02;
 const DEFAULT_DECAY_TIME = 0.2;
 const DEFAULT_SUSTAIN_RATIO = 0.75;
 const DEFAULT_RELEASE_TIME = 0.02;
+// oscillator constants
+const OSCILLATOR_COUNT = PITCH_DIVISIONS_PER_OCTAVE * 2 + 1;
+
 
 // global variables for on-page logging
 var isPageLoaded = false;
 var preLoadLog = '';
 
 // global musical variable
-var tempo = 240;				// BPM
+var tempo = 360;				// BPM
 var beatDuration = 60/tempo;	// duration of 1 beat in seconds
 
 // declare envelope object
@@ -63,9 +68,9 @@ var oscillator = new Array(OSCILLATOR_COUNT);
 for (var i = 0; i < OSCILLATOR_COUNT; i++) {
 	oscillator[i] = audioCtx.createOscillator();
 	oscillator[i].type = DEFAULT_WAVEFORM;
-	var f = Math.pow(SEMITONE_RATIO, i)*REFERENCE_A_FREQUENCY;
+	var f = midiNoteNumberToFrequency(i + 57);
 	oscillator[i].frequency.setValueAtTime(f, audioCtx.currentTime);
-	writeLog(i + ' : ' + oscillator[i].frequency.value + ' : ' + f);
+	writeLog(i + ' : ' + f);
 	// connect to both channels of the mixer
 	oscillator[i].connect(oscillatorMergerNode, 0, 0);
 	oscillator[i].connect(oscillatorMergerNode, 0, 1);
@@ -182,6 +187,23 @@ function onMasterVolumeChange() {
 	if(!Number.isNaN(newValue) && newValue >= 0 && newValue <= MAX_MASTER_VOLUME) {
 		masterVolumeNode.gain.setTargetAtTime(newValue/MAX_MASTER_VOLUME, audioCtx.currentTime, 0.1);
 	} else {
-		inputElement.value = oldValue*MAX_MASTER_VOLUME;
+		inputElement.value = oldValue * MAX_MASTER_VOLUME;
 	}
 }
+
+// MUSICAL FUNCTIONS
+function midiNoteNumberToFrequency(n) {
+	var octave = 0;
+	var noteClass = n;
+	while(noteClass < REFERENCE_NOTE_NUMBER) {
+		noteClass += PITCH_DIVISIONS_PER_OCTAVE;
+		octave --;
+	}
+	while(noteClass >= REFERENCE_OCTAVE_TOP_NOTE_NUMBER) {
+		noteClass -= PITCH_DIVISIONS_PER_OCTAVE;
+		octave ++;
+	}
+	console.log(octave + ' : ' + noteClass);
+	return REFERENCE_FREQUENCY * (2 ** octave) * (PITCH_DIVISION_RATIO ** (noteClass - REFERENCE_NOTE_NUMBER)); // using octave limits rounding errors
+}
+
