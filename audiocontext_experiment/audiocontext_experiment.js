@@ -16,7 +16,6 @@ const DEFAULT_RELEASE_TIME = 0.02;
 // oscillator constants
 const OSCILLATOR_COUNT = PITCH_DIVISIONS_PER_OCTAVE * 2 + 1;
 
-
 // global variables for on-page logging
 var isPageLoaded = false;
 var preLoadLog = '';
@@ -32,6 +31,20 @@ var envelope = {
 	s: DEFAULT_SUSTAIN_RATIO,	// sustain ratio [0 -1]
 	r: DEFAULT_RELEASE_TIME		// release time in seconds
 };
+
+// prototype functions
+function instrument() {
+	this.voice = new Array();
+}
+
+function synthVoice(oscillatorCount) {
+	this.oscillator = new Array(oscillatorCount);
+	this.oscillator.forEach(function(value, index, array) {
+		array[index] = audioCtx.createOscillator();
+		array[index].type = DEFAULT_WAVEFORM;
+		array[index].frequency = midiNoteNumberToFrequency(REFERENCE_NOTE_NUMBER);
+	});
+}
 
 // function to log into page rather than console
 function writeLog(str) {
