@@ -6,25 +6,10 @@
 	<script src="audio_environment.js" type="text/javascript"></script>
 	<script src="audiocontext_experiment.js" type="text/javascript"></script>
 </head>
-<body onload="onLoad();">
-<h1>AudioContext Experiment</h1>
-
-<table id='audioTrackList'>
-	<thead>
-		<tr>
-			<th>Track ID</th>
-			<th>Kind</th>
-			<th>Label</th>
-			<th>Ready State</th>
-			<th>Enabled?</th>
-		</tr>
-	</thead>
-	<tbody></tbody>
-</table>
-
-<label for="masterVolume">Master Volume (0 - 100):</label>
-<input id="masterVolume" type="text" onchange="onMasterVolumeChange()" value="100"></input>
-
-<pre id="logBox"></pre>
-</body>
+	<body onload="onLoad();">
+		<h1>AudioContext Experiment</h1>
+		<label for="masterVolume">Master Volume (0 - 100):</label>
+		<input id="masterVolume" type="text" onchange="onMasterVolumeChange()" value="100"></input>
+		<pre id="logBox"></pre>
+	</body>
 </html>

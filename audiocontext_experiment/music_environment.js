@@ -6,10 +6,10 @@ const REFERENCE_FREQUENCY = 440;				// Standard A = 440Hz
 const REFERENCE_NOTE_NUMBER = 69;				// MIDI A4 = 69
 const REFERENCE_OCTAVE_TOP_NOTE_NUMBER = REFERENCE_NOTE_NUMBER + PITCH_DIVISIONS_PER_OCTAVE;
 // default envelope settings
-const DEFAULT_ATTACK_TIME = 0.02;
-const DEFAULT_DECAY_TIME = 0.2;
-const DEFAULT_SUSTAIN_RATIO = 0.75;
-const DEFAULT_RELEASE_TIME = 0.02;
+const DEFAULT_ATTACK_TIME = 0.1;
+const DEFAULT_DECAY_TIME = 0.1;
+const DEFAULT_SUSTAIN_RATIO = 0.8;
+const DEFAULT_RELEASE_TIME = 1;
 // default filter settings
 const DEFAULT_FILTER_TYPE = 'lowpass';
 const DEFAULT_FILTER_FREQUNCY = 1000;
@@ -20,9 +20,10 @@ const DEFAULT_OSCILLATOR_COUNT = 2;
 const DEFAULT_OSCILLATOR_GAIN = 1;
 
 // global musical variables
-var tempo = 360;				// BPM
+var tempo = 120;				// BPM
 var beatDuration = 60/tempo;	// duration of 1 beat in seconds
-
+// computer keyboard input
+var baseOctave = 4;				// C4 = middle C
 // ADSR envelope constructor
 function envelopeADSR(a = DEFAULT_ATTACK_TIME, d = DEFAULT_DECAY_TIME, s = DEFAULT_SUSTAIN_RATIO, r = DEFAULT_RELEASE_TIME) {
 	this.attack = a;	// attack time in seconds
@@ -30,16 +31,15 @@ function envelopeADSR(a = DEFAULT_ATTACK_TIME, d = DEFAULT_DECAY_TIME, s = DEFAU
 	this.sustain = s;	// sustain ratio [0-1]
 	this.release = r;	// release time in seconds
 };
-
 // synth voice constructor
 function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform = DEFAULT_OSCILLATOR_WAVEFORM) {
-	var callTime = window.audioCtx.currentTime;
+	var callTime = audioCtx.currentTime;
 	// set up voice amplitube
-	this.voiceGainNode = window.audioCtx.createGain();
+	this.voiceGainNode = audioCtx.createGain();
 	this.voiceGainNode.gain.value = 0;
 	this.voiceGainNode.envelope = new envelopeADSR();
 	// set up voice filter
-	this.voiceFilterNode = window.audioCtx.createBiquadFilter();
+	this.voiceFilterNode = audioCtx.createBiquadFilter();
 	this.voiceFilterNode.type = DEFAULT_FILTER_TYPE;
 	this.voiceFilterNode.startFrequency = DEFAULT_FILTER_FREQUNCY;
 	this.voiceFilterNode.frequency.value = DEFAULT_FILTER_FREQUNCY;
@@ -52,11 +52,11 @@ function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform 
 		array[index].tune = index * PITCH_DIVISIONS_PER_OCTAVE;
 		array[index].fineTune = 0;
 		// create the oscillator source node
-		array[index].oscillatorSourceNode = window.audioCtx.createOscillator();
+		array[index].oscillatorSourceNode = audioCtx.createOscillator();
 		array[index].oscillatorSourceNode.type = waveform;
 		array[index].oscillatorSourceNode.frequency = midiNoteNumberToFrequency(REFERENCE_NOTE_NUMBER);
 		// create the oscillator gain node
-		array[index].oscillatorGainNode = window.audioCtx.createGain();
+		array[index].oscillatorGainNode = audioCtx.createGain();
 		array[index].oscillatorGainNode.gain.value = DEFAULT_OSCILLATOR_GAIN;
 		// connect the nodes
 		array[index].oscillatorSourceNode.connect(array[index].oscillatorGainNode);
@@ -64,11 +64,10 @@ function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform 
 		// start the oscillator (which runs continuously)
 		array[index].oscillatorSourceNode.startAtTime(callTime);
 	}, this);
-
 	// play a note
 	this.play = function(noteNumber) {
 //		console.log(this.voiceGainNode);
-		var callTime = window.audioCtx.currentTime;
+		var callTime = audioCtx.currentTime;
 		var peakTime = callTime + this.voiceGainNode.envelope.attack;
 		var settleTime = peakTime + this.voiceGainNode.envelope.delay;
 		this.oscillator.forEach(function(value, index, array) {
@@ -79,23 +78,20 @@ function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform 
 	}
 	// stop playing
 	this.stop = function() {
-		var callTime = window.audioCtx.currentTime;
+		var callTime = audioCtx.currentTime;
 		this.voiceGainNode.gain.exponentialRampToValueAtTime(0, callTime + this.voiceGainNode.envelope.release);
 	}
-
 	// is a note currently playing i.e. is the voice gain greater than zero?
 	this.isPlaying = function() {
 		return (this.voiceGainNode.gain.value > 0);
 	}
 }
-
 // instrument constructor
 function instrument() {
 	this.voice = new Array();
-	this.outputGainNode = window.audioCtx.createGain();
-	this.outputGainNode.connect(window.audioCtx.masterVolumeNode);
+	this.outputGainNode = audioCtx.createGain();
+	this.outputGainNode.connect(audioCtx.masterVolumeNode);
 }
-
 function midiNoteNumberToFrequency(noteNumber) {
 	var octaveShift = 0;
 	var noteClass = noteNumber;
@@ -109,48 +105,47 @@ function midiNoteNumberToFrequency(noteNumber) {
 	}
 	return REFERENCE_FREQUENCY * (OCTAVE_RATIO ** octaveShift) * (PITCH_DIVISION_RATIO ** (noteClass - REFERENCE_NOTE_NUMBER)); // using octave limits rounding errors
 }
-
 // 
 var keyCodeToMidiNoteNoteNumber = {
 	//bottome row
-	'IntlBackslash' : 60,	// C4
-	'KeyA' : 61,	// C#
-	'KeyZ' : 62,	// D
-	'KeyS' : 63,	// D#
-	'KeyX' : 64,	// E
-	'KeyC' : 65,	// F
-	'KeyF' : 66,	// F#
-	'KeyV' : 67,	// G
-	'KeyG' : 68,	// G#
-	'KeyB' : 69,	// A 440
-	'KeyH' : 70,	// A#
-	'KeyN' : 71,	// B
-	'KeyM' : 72,	// C5
-	'KeyK' : 73,	// C#
-	'Comma' : 74,	// D
-	'KeyL' : 75,	// D#
-	'Period' : 76,	// E
-	'Slash' : 77,	// F
-	'Quote' : 78,	// F#
+	'IntlBackslash' : 12,	// C0
+	'KeyA' : 13,	// C#
+	'KeyZ' : 14,	// D
+	'KeyS' : 15,	// D#
+	'KeyX' : 16,	// E
+	'KeyC' : 17,	// F
+	'KeyF' : 18,	// F#
+	'KeyV' : 19,	// G
+	'KeyG' : 20,	// G#
+	'KeyB' : 21,	// A 440
+	'KeyH' : 22,	// A#
+	'KeyN' : 23,	// B
+	'KeyM' : 24,	// C1
+	'KeyK' : 25,	// C#
+	'Comma' : 26,	// D
+	'KeyL' : 27,	// D#
+	'Period' : 28,	// E
+	'Slash' : 29,	// F
+	'Quote' : 30,	// F#
 	// top row
-	'KeyQ' : 72,	// C5
-	'Digit2' : 73,	// C#
-	'KeyW' : 74,	// D
-	'Digit3' : 75,	// D#
-	'KeyE' : 76,	// E
-	'KeyR' : 77,	// F
-	'Digit5' : 78,	// F#
-	'KeyT' : 79,	// G
-	'Digit6' : 80,	// G#
-	'KeyY' : 81,	// A
-	'Digit7' : 82,	// A#
-	'KeyU' : 83,	// B
-	'KeyI' : 84,	// C6
-	'Digit9' : 85,	// C#
-	'KeyO' : 86,	// D
-	'Digit0' : 87,	// D#
-	'KeyP' : 88,	// E
-	'BracketLeft' : 89,	// F
-	'Equal' : 90,	// F#
-	'BracketRight' : 90,	// G	
+	'KeyQ' : 24,	// C1
+	'Digit2' : 25,	// C#
+	'KeyW' : 26,	// D
+	'Digit3' : 27,	// D#
+	'KeyE' : 28,	// E
+	'KeyR' : 29,	// F
+	'Digit5' : 30,	// F#
+	'KeyT' : 31,	// G
+	'Digit6' : 32,	// G#
+	'KeyY' : 33,	// A
+	'Digit7' : 34,	// A#
+	'KeyU' : 35,	// B
+	'KeyI' : 36,	// C3
+	'Digit9' : 37,	// C#
+	'KeyO' : 38,	// D
+	'Digit0' : 39,	// D#
+	'KeyP' : 40,	// E
+	'BracketLeft' : 41,	// F
+	'Equal' : 42,	// F#
+	'BracketRight' : 43	// G	
 }
