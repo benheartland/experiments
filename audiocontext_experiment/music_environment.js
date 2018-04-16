@@ -6,16 +6,16 @@ const REFERENCE_FREQUENCY = 440;				// Standard A = 440Hz
 const REFERENCE_NOTE_NUMBER = 69;				// MIDI A4 = 69
 const REFERENCE_OCTAVE_TOP_NOTE_NUMBER = REFERENCE_NOTE_NUMBER + PITCH_DIVISIONS_PER_OCTAVE;
 // default envelope settings
-const DEFAULT_ATTACK_TIME = 0.1;
-const DEFAULT_DECAY_TIME = 0.1;
-const DEFAULT_SUSTAIN_RATIO = 0.8;
-const DEFAULT_RELEASE_TIME = 1;
+const DEFAULT_ATTACK_TIME = 0.4;
+const DEFAULT_DECAY_TIME = 0.7;
+const DEFAULT_SUSTAIN_RATIO = 0.2;
+const DEFAULT_RELEASE_TIME = 0.7;
 // default filter settings
 const DEFAULT_FILTER_TYPE = 'lowpass';
-const DEFAULT_FILTER_FREQUNCY = 1000;
+const DEFAULT_FILTER_FREQUENCY = 1000;
 const DEFAULT_FILTER_Q = 1;
 // oscillator constants
-const DEFAULT_OSCILLATOR_WAVEFORM = 'sine';
+const DEFAULT_OSCILLATOR_WAVEFORM = 'square';
 const DEFAULT_OSCILLATOR_COUNT = 2;
 const DEFAULT_OSCILLATOR_GAIN = 1;
 
@@ -24,13 +24,33 @@ var tempo = 120;				// BPM
 var beatDuration = 60/tempo;	// duration of 1 beat in seconds
 // computer keyboard input
 var baseOctave = 4;				// C4 = middle C
+
 // ADSR envelope constructor
-function envelopeADSR(a = DEFAULT_ATTACK_TIME, d = DEFAULT_DECAY_TIME, s = DEFAULT_SUSTAIN_RATIO, r = DEFAULT_RELEASE_TIME) {
+// t is an AudioParam
+function envelopeADSR(t, p = 1, a = DEFAULT_ATTACK_TIME, d = DEFAULT_DECAY_TIME, s = DEFAULT_SUSTAIN_RATIO, r = DEFAULT_RELEASE_TIME) {
+	this.target = t;
+	this.peak = p;
 	this.attack = a;	// attack time in seconds
 	this.delay = d;		// decay time in seconds
 	this.sustain = s;	// sustain ratio [0-1]
 	this.release = r;	// release time in seconds
+
+	this.triggerAttack = function(triggerTime = audioCtx.currentTime) {
+		this.target.cancelScheduledValues(triggerTime);
+		var peakTime = triggerTime + this.attack;
+		var settleTime = peakTime + this.delay;
+		this.target.linearRampToValueAtTime(this.peak, peakTime);
+		this.target.linearRampToValueAtTime(this.sustain * this.peak, settleTime);
+	}
+
+	this.triggerRelease = function(triggerTime = audioCtx.currentTime) {
+		this.target.cancelScheduledValues(triggerTime);
+		var stopTime = triggerTime + this.release;
+		this.target.linearRampToValueAtTime(0, stopTime);
+		this.target.setValueAtTime(0, stopTime);	
+	}
 };
+
 // synth voice constructor
 function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform = DEFAULT_OSCILLATOR_WAVEFORM) {
 	var callTime = audioCtx.currentTime;
@@ -41,8 +61,8 @@ function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform 
 	// set up voice filter
 	this.voiceFilterNode = audioCtx.createBiquadFilter();
 	this.voiceFilterNode.type = DEFAULT_FILTER_TYPE;
-	this.voiceFilterNode.startFrequency = DEFAULT_FILTER_FREQUNCY;
-	this.voiceFilterNode.frequency.value = DEFAULT_FILTER_FREQUNCY;
+	this.voiceFilterNode.startFrequency = DEFAULT_FILTER_FREQUENCY;
+	this.voiceFilterNode.frequency.value = DEFAULT_FILTER_FREQUENCY;
 	this.voiceFilterNode.Q.value = DEFAULT_FILTER_Q;
 	this.voiceFilterNode.envelope = new envelopeADSR();
 	this.voiceFilterNode.connect(this.voiceGainNode);

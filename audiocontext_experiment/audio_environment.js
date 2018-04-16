@@ -1,7 +1,7 @@
 // GLOBALS
 const SAMPLERATE = 44100;
 const MAX_MASTER_VOLUME = 100;
-const DEFAULT_MASTER_VOLUME = 5;
+const DEFAULT_MASTER_VOLUME = 10;
 const MASTER_VOLUME_CHANGE_TIME = 0.1;	// how long should it take master volume to track its control?
 
 // set up the audio context in global scope
