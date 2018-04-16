@@ -13,3 +13,43 @@ th, td {
 	border: 1px solid black;
 	padding: 0.5em;
 }
+
+div#keyboard {
+	margin: 10mm 2mm;
+	border: 1px solid gray;
+	padding: 2mm;
+}
+
+div.piano-key-white, div.piano-key-black {
+	margin: 0;
+}
+
+div.piano-key-white {
+	background-color: white;
+	color: black;
+	width: 23.5mm;
+	height: 152.4mm;
+	z-index: 10;
+	display: inline-block;
+	position: relative;
+}
+
+div.piano-key-black {
+	background-color: black;
+	color: white;
+	width: 13.7mm;	
+	height: 100mm;
+	position: absolute;
+	z-index: 11;
+	top: 0;
+	left: -7.85mm;
+}
+
+div.piano-key-label {
+	font-weight: bold;
+	position: absolute;
+	bottom: 0;
+	width: 100%;
+	text-align:center;
+	padding-bottom: 5mm;
+}

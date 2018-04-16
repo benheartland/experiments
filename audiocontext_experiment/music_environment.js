@@ -47,71 +47,117 @@ function envelopeADSR(t, p = 1, a = DEFAULT_ATTACK_TIME, d = DEFAULT_DECAY_TIME,
 		this.target.cancelScheduledValues(triggerTime);
 		var stopTime = triggerTime + this.release;
 		this.target.linearRampToValueAtTime(0, stopTime);
-		this.target.setValueAtTime(0, stopTime);	
 	}
+
 };
 
-// synth voice constructor
-function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform = DEFAULT_OSCILLATOR_WAVEFORM) {
-	var callTime = audioCtx.currentTime;
-	// set up voice amplitube
-	this.voiceGainNode = audioCtx.createGain();
-	this.voiceGainNode.gain.value = 0;
-	this.voiceGainNode.envelope = new envelopeADSR();
-	// set up voice filter
-	this.voiceFilterNode = audioCtx.createBiquadFilter();
-	this.voiceFilterNode.type = DEFAULT_FILTER_TYPE;
-	this.voiceFilterNode.startFrequency = DEFAULT_FILTER_FREQUENCY;
-	this.voiceFilterNode.frequency.value = DEFAULT_FILTER_FREQUENCY;
-	this.voiceFilterNode.Q.value = DEFAULT_FILTER_Q;
-	this.voiceFilterNode.envelope = new envelopeADSR();
-	this.voiceFilterNode.connect(this.voiceGainNode);
-	// set up oscillators
-	this.oscillator = new Array(oscillatorCount);
-	this.oscillator.forEach(function(value, index, array) {
-		array[index].tune = index * PITCH_DIVISIONS_PER_OCTAVE;
-		array[index].fineTune = 0;
-		// create the oscillator source node
-		array[index].oscillatorSourceNode = audioCtx.createOscillator();
-		array[index].oscillatorSourceNode.type = waveform;
-		array[index].oscillatorSourceNode.frequency = midiNoteNumberToFrequency(REFERENCE_NOTE_NUMBER);
-		// create the oscillator gain node
-		array[index].oscillatorGainNode = audioCtx.createGain();
-		array[index].oscillatorGainNode.gain.value = DEFAULT_OSCILLATOR_GAIN;
-		// connect the nodes
-		array[index].oscillatorSourceNode.connect(array[index].oscillatorGainNode);
-		array[index].oscillatorGainNode.connect(this.voiceFilterNode);
-		// start the oscillator (which runs continuously)
-		array[index].oscillatorSourceNode.startAtTime(callTime);
-	}, this);
-	// play a note
-	this.play = function(noteNumber) {
-//		console.log(this.voiceGainNode);
-		var callTime = audioCtx.currentTime;
-		var peakTime = callTime + this.voiceGainNode.envelope.attack;
-		var settleTime = peakTime + this.voiceGainNode.envelope.delay;
-		this.oscillator.forEach(function(value, index, array) {
-			array[index].oscillatorSourceNode.frequency.exponentialRampToValueAtTime(callTime, midiNoteNumberToFrequency(noteNumber + array[index].tune));  // TODO add fine tuning
-		}, this);
-		this.voiceGainNode.gain.exponentialRampToValueAtTime(1, peakTime);
-		this.voiceGainNode.gain.exponentialRampToValueAtTime(this.voiceGainNode.envelope.sustain, settleTime);
-	}
-	// stop playing
-	this.stop = function() {
-		var callTime = audioCtx.currentTime;
-		this.voiceGainNode.gain.exponentialRampToValueAtTime(0, callTime + this.voiceGainNode.envelope.release);
-	}
-	// is a note currently playing i.e. is the voice gain greater than zero?
-	this.isPlaying = function() {
-		return (this.voiceGainNode.gain.value > 0);
+// oscillator constructor
+// tune = coarse tuning in semitones (or pitch divisions in non-standard scales)
+// waveform = 'sine' | 'square' | 'sawtooth' | 'triangle" | 'custom'
+// fineTune = fine tuning in cents
+// f = frequncy in Hz
+// g = gain [0,1]
+function oscillator(tune = 0, waveform = DEFAULT_OSCILLATOR_WAVEFORM, fineTune = 0, f = REFERENCE_FREQUENCY, g = DEFAULT_OSCILLATOR_GAIN) {
+
+	// tuning value
+	this.tune = tune;
+
+	// audio source for oscillator
+	this.source = audioCtx.createOscillator();
+	this.source.type = waveform;
+	this.frequency = this.source.frequency;
+	this.frequency.detune = fineTune;
+	this.frequency.setValueAtTime(f * (PITCH_DIVISION_RATIO ** tune), audioCtx.currentTime);
+	this.source.start(audioCtx.currentTime);
+
+	// output gain for oscillator
+	this.gainNode = audioCtx.createGain();
+	this.gain = this.gainNode.gain;						// quick access to oscillator gain
+	this.gain.setValueAtTime(g, audioCtx.currentTime);
+
+	// connect nodes together
+	this.source.connect(this.gainNode);
+
+	// METHODS
+
+	// connect the output to an audio node
+	this.connect = function(audioNode) {this.gainNode.connect(audioNode)};
+
+	// set the note at time, as measured by the Audio Context 
+	this.setNoteAtTime = function(noteNumber, time) {
+		this.frequency.setValueAtTime(midiNoteNumberToFrequency(noteNumber + this.tune), time);
 	}
 }
+
+// classic synth voice constructor
+// set up {oscillatorCount} oscillators mixed together and routed through envelope-controlled filter and amplitude
+function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform = DEFAULT_OSCILLATOR_WAVEFORM) {
+
+	this.oscillatorCount = oscillatorCount;
+
+	// output gain for the voice
+	this.gainNode = audioCtx.createGain();
+	this.gain = this.gainNode.gain;						// quick access to voice gain
+	this.gain.setValueAtTime(0, audioCtx.currentTime);
+	this.gain.envelope = new envelopeADSR(this.gain);
+	this.connect = function(audioNode) {this.gainNode.connect(audioNode)};
+
+	// output filter for the voice
+	this.filter = audioCtx.createBiquadFilter();
+	this.filter.type = DEFAULT_FILTER_TYPE;
+	this.filter.frequency.setValueAtTime(DEFAULT_FILTER_FREQUENCY, audioCtx.currentTime);
+	this.filter.Q.setValueAtTime(DEFAULT_FILTER_Q, audioCtx.currentTime);
+	this.filter.gain.setValueAtTime(0, audioCtx.currentTime);				// TODO replace literal number
+	this.filter.envelope = new envelopeADSR(this.filter.detune, 4800);		// TODO replace literal number
+	this.filter.envelope.sustain = 0.8;										// TODO replace literal number
+	this.filter.connect(this.gainNode);
+
+	// set up oscillators
+	this.oscillator = new Array(this.oscillatorCount);
+	for(var i = 0; i < this.oscillatorCount; i++) {
+		this.oscillator[i] = new oscillator(12 * i, waveform);				// TODO add the ability to pass in an array of tune values
+		this.oscillator[i].connect(this.filter);
+	}
+
+	// METHODS
+
+	// change the note at time, as measured by the Audio Context
+	this.setNoteAtTime = function(noteNumber, time) {
+		for(var i = 0; i < this.oscillatorCount; i++) {
+			this.oscillator[i].setNoteAtTime(noteNumber, time);
+		}
+	}
+
+	// start a note
+	this.noteOn = function(noteNumber, noteOnTime = audioCtx.currentTime) {
+		console.log('Note On : ' + noteNumber);
+		this.setNoteAtTime(noteNumber, noteOnTime);
+		this.gain.envelope.triggerAttack(noteOnTime);
+		this.filter.envelope.triggerAttack(noteOnTime);
+	}
+
+	// stop playing a note
+	this.noteOff = function(noteNumber, noteOffTime = audioCtx.currentTime) {
+		console.log('Note Off: ' + noteNumber);
+		this.gain.envelope.triggerRelease(noteOffTime);
+		this.filter.envelope.triggerRelease(noteOffTime);
+	}
+
+	// is the voice currently playing i.e. is the voice gain greater than zero?
+	this.isPlaying = function() {
+		return (this.gain.value > 0);
+	}
+
+}
+
 // instrument constructor
 function instrument() {
 	this.voice = new Array();
 	this.outputGainNode = audioCtx.createGain();
 	this.outputGainNode.connect(audioCtx.masterVolumeNode);
 }
+
+// convert a (possibly fractional) MIDI note number to a frequency in Hz
 function midiNoteNumberToFrequency(noteNumber) {
 	var octaveShift = 0;
 	var noteClass = noteNumber;
