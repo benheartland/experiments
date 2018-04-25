@@ -5,12 +5,12 @@ const DEFAULT_MASTER_VOLUME = 10;
 const MASTER_VOLUME_CHANGE_TIME = 0.1;	// how long should it take master volume to track its control?
 
 // set up the audio context in global scope
-var AudioContext = window.AudioContext || window.webkitAudioContext; 	// cross-browser constructor function
 var audioCtx = new AudioContext({			// create a new AudioContext object
 	latencyHint: 'interactive',
 	sampleRate: SAMPLERATE
 });
-// set up Master Volume node
+
+// create Master Volume node
 audioCtx.masterVolumeNode = audioCtx.createGain();
 audioCtx.masterVolumeNode.gain.setValueAtTime(DEFAULT_MASTER_VOLUME/MAX_MASTER_VOLUME, audioCtx.currentTime);
 audioCtx.masterVolumeNode.connect(audioCtx.destination);
@@ -27,13 +27,13 @@ function getAudioInputStream() {
 	});
 }
 
-function onMasterVolumeChange() {
+audioCtx.onMasterVolumeChange = function() {
 	var inputElement = document.getElementById('masterVolume');
-	var oldValue = audioCtx.masterVolumeNode.gain.value;
+	var oldValue = this.masterVolumeNode.gain.value;
 	var newValue = inputElement.value;
 	// validate input and change as appropriate
 	if(!Number.isNaN(newValue) && newValue >= 0 && newValue <= MAX_MASTER_VOLUME) {
-		audioCtx.masterVolumeNode.gain.setTargetAtTime(newValue/MAX_MASTER_VOLUME, audioCtx.currentTime, MASTER_VOLUME_CHANGE_TIME);
+		this.masterVolumeNode.gain.setValueAtTime(newValue/MAX_MASTER_VOLUME, this.currentTime);
 	} else {
 		inputElement.value = oldValue * MAX_MASTER_VOLUME;
 	}

@@ -21,8 +21,6 @@ function writeLog(str) {
 
 // TODO replace the bit below with instrument & synth voice objects
 
-
-
 var testSynthVoice = new classicSynthVoice(5);
 testSynthVoice.connect(audioCtx.masterVolumeNode);
 var keyboardTarget = testSynthVoice;
@@ -31,16 +29,30 @@ var keyboardTarget = testSynthVoice;
 //monoSynth.voiceGainNode.connect(audioCtx.masterVolumeNode);
 
 document.onkeydown = function(event) {
-	if(!event.repeat) {
-		var noteNumber = keyCodeToMidiNoteNoteNumber[event.code];
-		if (noteNumber) {
-			noteNumber += baseOctave * PITCH_DIVISIONS_PER_OCTAVE;
-			keyboardTarget.noteOn(noteNumber);		
+	// console.log(event.code);		// Useful for finding key codes
+	// Check for a Note On keydown
+	var noteNumber = keyCodeToMidiNoteNoteNumber[event.code];
+	if (noteNumber && !event.repeat) {
+		noteNumber += baseOctave * PITCH_DIVISIONS_PER_OCTAVE;
+		keyboardTarget.noteOn(noteNumber);		
+	} else {
+		switch (event.code) {
+			case 'NumpadAdd':
+			// increase master volume
+			document.getElementById('masterVolume').value++;
+			onMasterVolumeChange();
+			break;
+			case 'NumpadSubtract':
+			// decrease master volume
+			document.getElementById('masterVolume').value--;
+			onMasterVolumeChange();
+			break;
 		}
 	}
 }
 
 document.onkeyup = function(event) {
+	// Check for a Note Off keyup
 	var noteNumber = keyCodeToMidiNoteNoteNumber[event.code];
 	if (noteNumber) {
 		noteNumber += baseOctave * PITCH_DIVISIONS_PER_OCTAVE;
