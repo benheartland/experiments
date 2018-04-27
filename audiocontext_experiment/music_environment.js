@@ -61,6 +61,7 @@ function oscillator(tune = 0, waveform = DEFAULT_OSCILLATOR_WAVEFORM, fineTune =
 
 	// tuning value
 	this.tune = tune;
+	this.glideTime = 0.2*(tune+1)/12;				// TODO set this more elegantly
 
 	// audio source for oscillator
 	this.source = audioCtx.createOscillator();
@@ -83,9 +84,15 @@ function oscillator(tune = 0, waveform = DEFAULT_OSCILLATOR_WAVEFORM, fineTune =
 	// connect the output to an audio node
 	this.connect = function(audioNode) {this.gainNode.connect(audioNode)};
 
-	// set the note at time, as measured by the Audio Context 
-	this.setNoteAtTime = function(noteNumber, time) {
-		this.frequency.setValueAtTime(midiNoteNumberToFrequency(noteNumber + this.tune), time);
+	// set the note instantly at time t, as measured by the Audio Context 
+	this.setNoteAtTime = function(noteNumber, t) {
+		this.frequency.setValueAtTime(midiNoteNumberToFrequency(noteNumber + this.tune), t);
+	}
+
+	// gilde to note, starting at time t, as measured by the Audio Context
+	this.exponentialRampToNoteAtTime = function(noteNumber, t) {
+		this.frequency.setValueAtTime(midiNoteNumberToFrequency(noteNumber + this.tune), t);	// needed to give the starting point of the ramp
+		this.frequency.exponentialRampToValueAtTime(midiNoteNumberToFrequency(noteNumber + this.tune), t + this.glideTime);
 	}
 }
 
@@ -93,7 +100,9 @@ function oscillator(tune = 0, waveform = DEFAULT_OSCILLATOR_WAVEFORM, fineTune =
 // set up {oscillatorCount} oscillators mixed together and routed through envelope-controlled filter and amplitude
 function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform = DEFAULT_OSCILLATOR_WAVEFORM) {
 
+	this.isPlaying = false;
 	this.oscillatorCount = oscillatorCount;
+	this.retrigger = false;
 
 	// output gain for the voice
 	this.gainNode = audioCtx.createGain();
@@ -121,31 +130,48 @@ function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform 
 
 	// METHODS
 
-	// change the note at time, as measured by the Audio Context
-	this.setNoteAtTime = function(noteNumber, time) {
+	// change the note immediately at time t, as measured by the Audio Context
+	this.setNoteAtTime = function(noteNumber, t) {
+		this.currentNoteNumber = noteNumber;
 		for(var i = 0; i < this.oscillatorCount; i++) {
-			this.oscillator[i].setNoteAtTime(noteNumber, time);
+			this.oscillator[i].setNoteAtTime(noteNumber, t);
 		}
 	}
+
+	// gilde to note starting at time t, as measured by the Audio Context
+	this.exponentialRampToNoteAtTime = function(noteNumber, t) {
+		this.currentNoteNumber = noteNumber;
+		for(var i = 0; i < this.oscillatorCount; i++) {
+			this.oscillator[i].exponentialRampToNoteAtTime(noteNumber, t);
+		}
+	}
+
+	this.setNoteAtTime(REFERENCE_NOTE_NUMBER, audioCtx.currentTime);
 
 	// start a note
 	this.noteOn = function(noteNumber, noteOnTime = audioCtx.currentTime) {
 		console.log('Note On : ' + noteNumber);
-		this.setNoteAtTime(noteNumber, noteOnTime);
-		this.gain.envelope.triggerAttack(noteOnTime);
-		this.filter.envelope.triggerAttack(noteOnTime);
+		this.isPlaying ? this.exponentialRampToNoteAtTime(noteNumber, noteOnTime) : this.setNoteAtTime(noteNumber, noteOnTime);
+		if(this.retrigger || (this.isPlaying == false)) {
+			this.gain.envelope.triggerAttack(noteOnTime);
+			this.filter.envelope.triggerAttack(noteOnTime);	
+		}
+		this.isPlaying = true;
 	}
 
 	// stop playing a note
 	this.noteOff = function(noteNumber, noteOffTime = audioCtx.currentTime) {
-		console.log('Note Off: ' + noteNumber);
-		this.gain.envelope.triggerRelease(noteOffTime);
-		this.filter.envelope.triggerRelease(noteOffTime);
+		if (this.isPlaying && this.currentNoteNumber == noteNumber) {
+			this.isPlaying = false;
+			console.log('Note Off: ' + noteNumber);		
+			this.gain.envelope.triggerRelease(noteOffTime);
+			this.filter.envelope.triggerRelease(noteOffTime);	
+		}
 	}
 
 	// is the voice currently playing i.e. is the voice gain greater than zero?
-	this.isPlaying = function() {
-		return (this.gain.value > 0);
+	this.isSilent = function() {
+		return (this.gain.value = 0);
 	}
 
 }
