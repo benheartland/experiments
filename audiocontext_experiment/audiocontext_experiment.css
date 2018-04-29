@@ -4,13 +4,16 @@ body {
 }
 
 table {
-	border: 1px solid black;
 	border-collapse: collapse;
+}
+
+thead {
+	font-weight: bold;
 }
 
 th, td {
 	text-align: left;
-	border: 1px solid black;
+	border: 1px solid gray;
 	padding: 0.5em;
 }
 

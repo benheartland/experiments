@@ -2,22 +2,23 @@
 const SAMPLERATE = 44100;
 const MAX_MASTER_VOLUME = 100;
 const DEFAULT_MASTER_VOLUME = 10;
-const MASTER_VOLUME_CHANGE_TIME = 0.1;	// how long should it take master volume to track its control?
 
-// set up the audio context in global scope
-var audioCtx = new AudioContext({			// create a new AudioContext object
-	latencyHint: 'interactive',
-	sampleRate: SAMPLERATE
-});
+// add createMasterVolume method to the AudioContext prototype
+AudioContext.prototype.createMasterVolume = function() {
+	this.masterVolumeNode = audioCtx.createGain();
+	this.masterVolume = this.masterVolumeNode.gain;
+	this.masterVolume.setValueAtTime(DEFAULT_MASTER_VOLUME/MAX_MASTER_VOLUME, this.currentTime);
+	this.masterVolumeNode.connect(this.destination);
+}
 
-// create Master Volume node
-audioCtx.masterVolumeNode = audioCtx.createGain();
-audioCtx.masterVolumeNode.gain.setValueAtTime(DEFAULT_MASTER_VOLUME/MAX_MASTER_VOLUME, audioCtx.currentTime);
-audioCtx.masterVolumeNode.connect(audioCtx.destination);
-
+// asks the user for permission to access audio inputs
+// input: none
+// returns: a MediaStream object
 function getAudioInputStream() {
 	navigator.mediaDevices.getUserMedia({ audio: true, video: false })
 	.then(function(audioInputStream) {
+		// list the available audio tracks in a table
+		listAudioInputTracks(audioInputStream);
 		// create a new audio stream source node connected to the input
 		return audioCtx.createMediaStreamSource(audioInputStream);
 	})
@@ -27,53 +28,34 @@ function getAudioInputStream() {
 	});
 }
 
-audioCtx.onMasterVolumeChange = function() {
-	var inputElement = document.getElementById('masterVolume');
-	var oldValue = this.masterVolumeNode.gain.value;
-	var newValue = inputElement.value;
-	// validate input and change as appropriate
-	if(!Number.isNaN(newValue) && newValue >= 0 && newValue <= MAX_MASTER_VOLUME) {
-		this.masterVolumeNode.gain.setValueAtTime(newValue/MAX_MASTER_VOLUME, this.currentTime);
-	} else {
-		inputElement.value = oldValue * MAX_MASTER_VOLUME;
-	}
-}
-
-function appendTableCell(tableRowElement, cellTextContent, headerCell = false) {
-	var tagName = headerCell ? 'th' : 'td';
-	var newCell = document.createElement('tagName');
-	newCell.textContent = cellTextContent;
-	tableRowElement.appendChild(newCell);
-}
-
+// list the available audio tracks
+// input: a MediaStream object
+// output: creates a new table in the document body listing the audio tracks
 function listAudioInputTracks(audioInputStream) {
-	// list the available audio tracks
 	var audioTrackListTable = document.createElement('table');
-	var audioTrackListHeader = document.createElement('thead');
-	audioTrackListTable.appendChild(audioTrackListHeader);
-	var audioTrackListHeaderRow = document.createElement('tr');
-	audioTrackListHeader.appendChild(audioTrackListHeaderRow);
-	appendTableCell(audioTrackListHeaderRow, 'Track ID', true);
-	appendTableCell(audioTrackListHeaderRow, 'Kind', true);
-	appendTableCell(audioTrackListHeaderRow, 'Label', true);
-	appendTableCell(audioTrackListHeaderRow, 'Ready State', true);
-	appendTableCell(audioTrackListHeaderRow, 'Enabled?', true);
-	var audioTrackListBody = document.createElement('tbody');
-	audioTrackListTable.appendChild(audioTrackListBody);
-	audioInputStream.getTracks().forEach(function(track) {
+	// create table header
+	var audioTrackListHeader = audioTrackListTable.createTHead();
+	var audioTrackListHeaderRow = audioTrackListHeader.insertRow();
+	audioTrackListHeaderRow.insertCell().innerText = 'Track ID';
+	audioTrackListHeaderRow.insertCell().innerText = 'Kind';
+	audioTrackListHeaderRow.insertCell().innerText = 'Label';
+	audioTrackListHeaderRow.insertCell().innerText = 'Ready State';
+	audioTrackListHeaderRow.insertCell().innerText = 'Enabled?';
+	// create table body
+	var audioTrackListBody = audioTrackListTable.createTBody();
+	audioInputStream.getAudioTracks().forEach(function(track) {
 		// create a new row for the table
-		var newRow = document.createElement('tr');
-		audioTrackListBody.appendChild(newRow);
+		var newRow = audioTrackListBody.insertRow();
 		// add a new cell containing the track's ID
-		appendTableCell(newRow, track.id);
+		newRow.insertCell().innerText = track.id;
 		// add a new cell containing the tracks's Kind
-		appendTableCell(newRow, track.kind);
+		newRow.insertCell().innerText = track.kind;
 		// add a new cell containing the track's Label
-		appendTableCell(newRow, track.label);
+		newRow.insertCell().innerText = track.label;
 		// add a new cell containing the track's Ready State
-		appendTableCell(newRow, track.readyState);
+		newRow.insertCell().innerText = track.readyState;
 		// add a new cell containing the track's Enabled value
-		appendTableCell(newRow, track.enabled);
+		newRow.insertCell().innerText = track.enabled;
 		// write the new row to the table
 	})
 	document.body.appendChild(audioTrackListTable);

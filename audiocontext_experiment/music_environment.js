@@ -177,10 +177,19 @@ function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform 
 }
 
 // instrument constructor
-function instrument() {
-	this.voice = new Array();
-	this.outputGainNode = audioCtx.createGain();
-	this.outputGainNode.connect(audioCtx.masterVolumeNode);
+AudioContext.prototype.createInstrument = function(voiceCount) {
+	var newInstrument = new Object();
+	// array to hold instrumnet voices
+	newInstrument.voice = new Array(voiceCount);
+	// output volume
+	newInstrument.outputGainNode = this.createGain();
+	newInstrument.volume = newInstrument.outputGainNode.gain;
+	// method to connect instrument
+	newInstrument.connect = function(destinationNode, output, input) {
+		newInstrument.outputGainNode.connect(destinationNode, output, input);
+	};
+	// return the new instrument
+	return newInstrument;
 }
 
 // convert a (possibly fractional) MIDI note number to a frequency in Hz
@@ -197,7 +206,8 @@ function midiNoteNumberToFrequency(noteNumber) {
 	}
 	return REFERENCE_FREQUENCY * (OCTAVE_RATIO ** octaveShift) * (PITCH_DIVISION_RATIO ** (noteClass - REFERENCE_NOTE_NUMBER)); // using octave limits rounding errors
 }
-// 
+// dictionary of computer keyboard keys to a MIDI note number
+// based on octave 0
 var keyCodeToMidiNoteNoteNumber = {
 	//bottome row
 	'IntlBackslash' : 12,	// C0

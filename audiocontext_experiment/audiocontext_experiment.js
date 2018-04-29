@@ -16,25 +16,25 @@ function writeLog(str) {
 	}
 }
 
+// set up the audio context in global scope
+var audioCtx = new AudioContext({			// create a new AudioContext object
+	latencyHint: 'interactive',
+	sampleRate: SAMPLERATE
+});
+
 // get audio input stream
 // window.audioInputStream = getAudioInputStream();
 
 // TODO replace the bit below with instrument & synth voice objects
 
-var testSynthVoice = new classicSynthVoice(5);
-testSynthVoice.connect(audioCtx.masterVolumeNode);
-var keyboardTarget = testSynthVoice;
-
-//var monoSynth = new classicSynthVoice(3, 'triangle');
-//monoSynth.voiceGainNode.connect(audioCtx.masterVolumeNode);
-
+// set key event listeners for using computer keyboard as music keyboard/control surface
 document.onkeydown = function(event) {
 	// console.log(event.code);		// Useful for finding key codes
 	// Check for a Note On keydown
 	var noteNumber = keyCodeToMidiNoteNoteNumber[event.code];
 	if (noteNumber && !event.repeat) {
 		noteNumber += baseOctave * PITCH_DIVISIONS_PER_OCTAVE;
-		keyboardTarget.noteOn(noteNumber);		
+		window.keyboardTarget.noteOn(noteNumber);		
 	} else {
 		switch (event.code) {
 			case 'NumpadAdd':
@@ -56,7 +56,7 @@ document.onkeyup = function(event) {
 	var noteNumber = keyCodeToMidiNoteNoteNumber[event.code];
 	if (noteNumber) {
 		noteNumber += baseOctave * PITCH_DIVISIONS_PER_OCTAVE;
-		keyboardTarget.noteOff(noteNumber);
+		window.keyboardTarget.noteOff(noteNumber);
 	}
 }
 
@@ -64,6 +64,26 @@ document.onkeyup = function(event) {
 function onLoad() {
 	isPageLoaded = true;
 	writeLog('onLoad called');
-	// set master volume
-	document.getElementById('masterVolume').value = DEFAULT_MASTER_VOLUME;
+	getAudioInputStream();
+
+	// set up master volume
+	audioCtx.createMasterVolume();
+	var masterVolumeInputElement = document.getElementById('masterVolume');
+	masterVolumeInputElement.value = DEFAULT_MASTER_VOLUME;
+	masterVolumeInputElement.onchange = function() {
+		var oldValue = audioCtx.masterVolume.value;
+		var newValue = this.value;
+		// validate input and change as appropriate
+		if(!Number.isNaN(newValue) && newValue >= 0 && newValue <= MAX_MASTER_VOLUME) {
+			this.masterVolume.setValueAtTime(newValue/MAX_MASTER_VOLUME, audioCtx.currentTime);
+		} else {
+			this.value = oldValue * MAX_MASTER_VOLUME;
+		}
+	}
+
+	// set up a synth voice
+	var testSynthVoice = new classicSynthVoice(5);
+	testSynthVoice.connect(audioCtx.masterVolumeNode);
+	window.keyboardTarget = testSynthVoice;
+
 }
