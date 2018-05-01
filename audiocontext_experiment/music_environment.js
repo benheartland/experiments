@@ -61,7 +61,7 @@ function oscillator(tune = 0, waveform = DEFAULT_OSCILLATOR_WAVEFORM, fineTune =
 
 	// tuning value
 	this.tune = tune;
-	this.glideTime = 0.2*(tune+1)/12;				// TODO set this more elegantly
+	this.glideTime = 0.1 + this.tune/120;				// TODO set this more elegantly
 
 	// audio source for oscillator
 	this.source = audioCtx.createOscillator();
@@ -91,7 +91,7 @@ function oscillator(tune = 0, waveform = DEFAULT_OSCILLATOR_WAVEFORM, fineTune =
 
 	// gilde to note, starting at time t, as measured by the Audio Context
 	this.exponentialRampToNoteAtTime = function(noteNumber, t) {
-		this.frequency.setValueAtTime(midiNoteNumberToFrequency(noteNumber + this.tune), t);	// needed to give the starting point of the ramp
+		this.frequency.setValueAtTime(this.frequency.value, t);	// needed to give the starting point of the ramp - TODO get f at ramp starting time, not funtion call time
 		this.frequency.exponentialRampToValueAtTime(midiNoteNumberToFrequency(noteNumber + this.tune), t + this.glideTime);
 	}
 }
@@ -102,7 +102,7 @@ function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform 
 
 	this.isPlaying = false;
 	this.oscillatorCount = oscillatorCount;
-	this.retrigger = false;
+	this.retrigger = true;
 
 	// output gain for the voice
 	this.gainNode = audioCtx.createGain();
@@ -150,9 +150,13 @@ function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform 
 
 	// start a note
 	this.noteOn = function(noteNumber, noteOnTime = audioCtx.currentTime) {
-		console.log('Note On : ' + noteNumber);
-		this.isPlaying ? this.exponentialRampToNoteAtTime(noteNumber, noteOnTime) : this.setNoteAtTime(noteNumber, noteOnTime);
-		if(this.retrigger || (this.isPlaying == false)) {
+		console.log('Note On : ' + noteNumber + ' : isPlaying = ' + this.isPlaying);
+		if (this.isPlaying == true) {
+			this.exponentialRampToNoteAtTime(noteNumber, noteOnTime)
+		} else{
+			this.setNoteAtTime(noteNumber, noteOnTime)
+		}
+		if(this.retrigger || this.isPlaying == false) {
 			this.gain.envelope.triggerAttack(noteOnTime);
 			this.filter.envelope.triggerAttack(noteOnTime);	
 		}
