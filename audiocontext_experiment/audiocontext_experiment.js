@@ -82,7 +82,7 @@ function onLoad() {
 	}
 
 	// set up a synth voice
-	var testSynthVoice = new classicSynthVoice(5);
+	var testSynthVoice = new ClassicSynthVoice(5);
 	testSynthVoice.connect(audioCtx.masterVolumeNode);
 	window.keyboardTarget = testSynthVoice;
 

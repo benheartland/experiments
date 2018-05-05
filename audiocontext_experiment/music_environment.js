@@ -98,7 +98,7 @@ function oscillator(tune = 0, waveform = DEFAULT_OSCILLATOR_WAVEFORM, fineTune =
 
 // classic synth voice constructor
 // set up {oscillatorCount} oscillators mixed together and routed through envelope-controlled filter and amplitude
-function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform = DEFAULT_OSCILLATOR_WAVEFORM) {
+function ClassicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform = DEFAULT_OSCILLATOR_WAVEFORM) {
 
 	this.isPlaying = false;
 	this.oscillatorCount = oscillatorCount;
@@ -180,8 +180,13 @@ function classicSynthVoice(oscillatorCount = DEFAULT_OSCILLATOR_COUNT, waveform 
 
 }
 
-// instrument constructor
-AudioContext.prototype.createInstrument = function(voiceCount) {
+// Instrument constructor
+// Parameters:
+//   voiceConstructor - the constructor function for the voices
+//   voiceCount - integer: the number of voices the instrument will have
+// Returns:
+//   a new Instrument object
+AudioContext.prototype.Instrument = function(voiceConstructor, voiceCount) {
 	var newInstrument = new Object();
 	// array to hold instrumnet voices
 	newInstrument.voice = new Array(voiceCount);
@@ -192,6 +197,7 @@ AudioContext.prototype.createInstrument = function(voiceCount) {
 	newInstrument.connect = function(destinationNode, output, input) {
 		newInstrument.outputGainNode.connect(destinationNode, output, input);
 	};
+	// TODO: NoteOn & NoteOff functions, voice allocation
 	// return the new instrument
 	return newInstrument;
 }
@@ -210,6 +216,7 @@ function midiNoteNumberToFrequency(noteNumber) {
 	}
 	return REFERENCE_FREQUENCY * (OCTAVE_RATIO ** octaveShift) * (PITCH_DIVISION_RATIO ** (noteClass - REFERENCE_NOTE_NUMBER)); // using octave limits rounding errors
 }
+
 // dictionary of computer keyboard keys to a MIDI note number
 // based on octave 0
 var keyCodeToMidiNoteNoteNumber = {
