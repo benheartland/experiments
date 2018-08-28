@@ -1,0 +1,23 @@
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14pt;
+    background-color: #fffce8;
+}
+
+table {
+    border-collapse: collapse;
+    background: white;
+}
+
+table#performance-measurement td, table#performance-measurement th {
+    width: 8em;
+    text-align: right;
+    padding: 0.2em;
+    border: 1px solid black;
+}
+
+canvas.string-canvas {
+    border: 1px solid black;
+    margin: 1rem 0;
+    background: white;
+}

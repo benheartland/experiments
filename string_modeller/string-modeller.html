@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>String Modeller</title>
+    <link rel="stylesheet" type="text/css" href="string-modeller.css"/>
+    <script src="string-modeller.js"></script>
+</head>
+<body>
+    <!-- Performance measurement -->
+    <table id="performance-measurement">
+        <thead>
+            <tr>
+                <th>Duration (s)</th>
+                <th>Loops</th>
+                <th>Rate (s<sup>-1</sup>)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td id="expired-time">0</td>
+                <td id="loop-count">0</td>
+                <td id="loop-rate">N/A</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Canvas to display string -->
+    <div id="canvas-container">
+    </div>
+
+</body>
+</html>
