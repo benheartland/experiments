@@ -24,20 +24,24 @@ var stringSegment = function(length, mass) {
     this.isNode = false;
 }
 
-// constructor for an object describing a string with uniform density along its length
+// Constructor for an object describing a string with uniform density along its length.
 // Use SI units: m, kg/m, Hz
 var uniformString = function(segmentCount, length, massPerUnitLength, frequency) {
     // state alternates between 0 and 1 to indicate which set of variables is current
     this.state = 0;
+    // We model the string as segmentCount point masses
     this.segmentCount = segmentCount;
     this.length = length;
     this.massPerUnitLength = massPerUnitLength;
     this.tension = Math.pow(2 * length * frequency, 2) * massPerUnitLength;
-    var lengthPerSegment = length / segmentCount;
-    var massPerSegment = massPerUnitLength * lengthPerSegment;
+    // the point masses are joined by segmentCount-1 weightless springs.
+    var lengthPerSegment = length / (segmentCount - 1);
+    var massPerSegment = massPerUnitLength * length / segmentCount;
     this.segment = new Array(segmentCount);
-    this.segment.fill(new stringSegment(lengthPerSegment, massPerSegment));
-    // the first an last segments are always nodes
+    for (i = 0; i < segmentCount; i++) {
+        this.segment[i] = new stringSegment(lengthPerSegment, massPerSegment);
+    }
+    // the first and last segments are always nodes
     this.segment[0].isNode = true;
     this.segment[this.segmentCount - 1].isNode = true;
 
@@ -49,11 +53,13 @@ var uniformString = function(segmentCount, length, massPerUnitLength, frequency)
         // calculate the next iteration
         for (var i = 0; i < this.segmentCount; i++) {
             if (this.segment[i].isNode) {
+                console.log('Segment ' + i + ' is a node.');
                 // if the segment is a node, clamp it to zero
                 this.segment[i].displacement[nextState] = 0;
                 this.segment[i].velocity[nextState] = 0;
                 this.segment[i].acceleration = 0;
             } else {
+                // BUG: in testing, this appears to set the whole string to zero in a single iteration
                 // calculate acceleration
                 this.segment[i].acceleration = this.tension / this.segment[i].mass *
                 (   // resolve vertical forces
@@ -63,7 +69,7 @@ var uniformString = function(segmentCount, length, massPerUnitLength, frequency)
                 // calculate velocity
                 this.segment[i].velocity[nextState] = this.segment[i].velocity[currentState] + dt * this.segment[i].acceleration;
                 // calculate displacement
-                this.segment[i].displacement[nextState] = this.segment[i].displacement[currentState] + dt * this.segment[i].velocity[nextState];
+                this.segment[i].displacement[nextState] = this.segment[i].displacement[currentState] + dt * this.segment[i].velocity[currentState] + 0.5*dt*dt*this.segment[i].acceleration;
             }
         }
         // flip to the other state (0 <=> 1)
@@ -116,6 +122,9 @@ function main() {
     // create the canvas element(s) that the string(s) will be drawn in
     var gStringCanvas = createStringCanvas("g-string-canvas", "G string");
 
+    // TESTING: naively displace part of the string a little
+    gString.segment[100].displacement[0] = 64;
+
     // draw the string(s)
     drawString(gString, gStringCanvas);
 
@@ -125,11 +134,12 @@ function main() {
     startTime = Date.now();
 
     // The main loop
-    do {
+//    do {
         // calculate next iteration
         gString.advanceToNextIteration();
 
         // redraw canvas
+//        gStringCanvas.ctx.clearRect(0, 0, gStringCanvas.width, gStringCanvas.height);
         drawString(gString, gStringCanvas);
 
         // performance measurement
@@ -145,7 +155,7 @@ function main() {
         loopRateDisplay.textContent = Math.round(loopRate * 1000);
 
     // stop after runDuration has elapsed
-    } while (expiredTime < runDuration);
+//    } while (expiredTime < runDuration);
     console.log("Main loop stopped");
 }
 
