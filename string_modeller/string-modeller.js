@@ -2,7 +2,7 @@
 var startTime, expiredTime, loopCount, loopRate;
 
 // how long the model should run for, in milliseconds
-var runDuration = 5000;
+var runDuration = 20000;
 
 // target samplerate (samples per second)
 var targetSampleRate = 48000;
@@ -46,7 +46,7 @@ var uniformString = function(segmentCount, length, massPerUnitLength, frequency)
     this.segment[this.segmentCount - 1].isNode = true;
 
     // method to advance to next iteration
-    // dt is the time difference between the two iterations
+    // dt is the time difference between the two iterations, in seconds
     this.advanceToNextIteration = function(dt) {
         var currentState = this.state;
         var nextState = this.state++ % 2;
@@ -59,9 +59,8 @@ var uniformString = function(segmentCount, length, massPerUnitLength, frequency)
                 this.segment[i].velocity[nextState] = 0;
                 this.segment[i].acceleration = 0;
             } else {
-                // BUG: in testing, this appears to set the whole string to zero in a single iteration
                 // calculate acceleration
-                this.segment[i].acceleration = this.tension / this.segment[i].mass *
+                this.segment[i].acceleration = - this.tension / this.segment[i].mass *
                 (   // resolve vertical forces
                     (this.segment[i-1].displacement[currentState] - this.segment[i].displacement[currentState])/this.segment[i-1].length
                     + (this.segment[i+1].displacement[currentState] - this.segment[i].displacement[currentState])/this.segment[i].length
@@ -134,9 +133,9 @@ function main() {
     startTime = Date.now();
 
     // The main loop
-//    do {
+    do {
         // calculate next iteration
-        gString.advanceToNextIteration();
+        gString.advanceToNextIteration(0.001);
 
         // redraw canvas
 //        gStringCanvas.ctx.clearRect(0, 0, gStringCanvas.width, gStringCanvas.height);
@@ -155,7 +154,7 @@ function main() {
         loopRateDisplay.textContent = Math.round(loopRate * 1000);
 
     // stop after runDuration has elapsed
-//    } while (expiredTime < runDuration);
+    } while (expiredTime < runDuration);
     console.log("Main loop stopped");
 }
 
