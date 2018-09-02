@@ -1,14 +1,33 @@
+const stopAfterNIterations = 1000;
+const dt = 0.00001;
+const verticalZoom = 10;
+var pluckPoint = 0.5; // set within the range (0, 1)
+var pluckDisplacement = 0.0001;
+
+// styling
+var centerlineColor = "#ff8888";
+var waveColor = "#000000";
+
 // initialise performance measurement variables in global scope
-var startTime, expiredTime, loopCount, loopRate;
+var startTime,
+    elapsedRealTime = 0,
+    elapsedVirtualTime = 0,
+    loopCount = 0,
+    loopRate
+;
 
 // how long the model should run for, in milliseconds
-var runDuration = 20000;
+var runDuration = 40;
 
 // target samplerate (samples per second)
 var targetSampleRate = 48000;
 
 // number of segments to divide a string into
-var stringSegmentCount = 1024;
+var stringSegmentCount = 2**4 * 3**2;
+console.log('# segments: ' + stringSegmentCount);
+// the point at which the string will be plicked
+var pluckSegment = Math.round(pluckPoint * stringSegmentCount);
+console.log('Pluck at segment #:' + pluckSegment);
 
 // string canvas height in canvas pixels
 var stringCanvasHeight = 256;
@@ -29,12 +48,12 @@ var stringSegment = function(length, mass) {
 var uniformString = function(segmentCount, length, massPerUnitLength, frequency) {
     // state alternates between 0 and 1 to indicate which set of variables is current
     this.state = 0;
-    // We model the string as segmentCount point masses
+    // We model the string as n = segmentCount point masses
     this.segmentCount = segmentCount;
     this.length = length;
     this.massPerUnitLength = massPerUnitLength;
     this.tension = Math.pow(2 * length * frequency, 2) * massPerUnitLength;
-    // the point masses are joined by segmentCount-1 weightless springs.
+    // the point masses are joined by n-1 weightless springs.
     var lengthPerSegment = length / (segmentCount - 1);
     var massPerSegment = massPerUnitLength * length / segmentCount;
     this.segment = new Array(segmentCount);
@@ -45,30 +64,33 @@ var uniformString = function(segmentCount, length, massPerUnitLength, frequency)
     this.segment[0].isNode = true;
     this.segment[this.segmentCount - 1].isNode = true;
 
+    // DEBUG
+    console.log('Tension: ' + this.tension + ' N');
+    console.log('Point mass: ' + this.segment[pluckSegment].mass + ' kg');
+
     // method to advance to next iteration
     // dt is the time difference between the two iterations, in seconds
     this.advanceToNextIteration = function(dt) {
         var currentState = this.state;
-        var nextState = this.state++ % 2;
+        var nextState = (currentState + 1) % 2;
         // calculate the next iteration
         for (var i = 0; i < this.segmentCount; i++) {
             if (this.segment[i].isNode) {
-                console.log('Segment ' + i + ' is a node.');
                 // if the segment is a node, clamp it to zero
                 this.segment[i].displacement[nextState] = 0;
                 this.segment[i].velocity[nextState] = 0;
                 this.segment[i].acceleration = 0;
             } else {
                 // calculate acceleration
-                this.segment[i].acceleration = - this.tension / this.segment[i].mass *
-                (   // resolve vertical forces
-                    (this.segment[i-1].displacement[currentState] - this.segment[i].displacement[currentState])/this.segment[i-1].length
-                    + (this.segment[i+1].displacement[currentState] - this.segment[i].displacement[currentState])/this.segment[i].length
-                );
+                var dx1 = this.segment[i-1].length;
+                var dy1 = this.segment[i-1].displacement[currentState] - this.segment[i].displacement[currentState];
+                var dx2 = this.segment[i].length;
+                var dy2 = this.segment[i+1].displacement[currentState] - this.segment[i].displacement[currentState];
+                this.segment[i].acceleration = this.tension / this.segment[i].mass * (dy1/Math.sqrt(dx1*dx1 + dy1*dy1) + dy2/Math.sqrt(dx2*dx2 + dy2*dy2));
                 // calculate velocity
                 this.segment[i].velocity[nextState] = this.segment[i].velocity[currentState] + dt * this.segment[i].acceleration;
                 // calculate displacement
-                this.segment[i].displacement[nextState] = this.segment[i].displacement[currentState] + dt * this.segment[i].velocity[currentState] + 0.5*dt*dt*this.segment[i].acceleration;
+                this.segment[i].displacement[nextState] = this.segment[i].displacement[currentState] + dt*this.segment[i].velocity[currentState] + 0.5*dt*dt*this.segment[i].acceleration;
             }
         }
         // flip to the other state (0 <=> 1)
@@ -76,16 +98,12 @@ var uniformString = function(segmentCount, length, massPerUnitLength, frequency)
     }
 }
 
-window.onload = function() {
-    // start the main loop
-    main();
-}
-
 // creates the canvas element that string(s) will be drawn in
 function createStringCanvas(id, title = '') {
     var canvasElement = document.createElement("canvas");
     canvasElement.id = id;
     canvasElement.title = title;
+    canvasElement.xZoom = 3;
     canvasElement.yZoom = 1;
     canvasElement.classList.add("string-canvas");
     if (title == '') {
@@ -96,7 +114,7 @@ function createStringCanvas(id, title = '') {
 
     // make the canvas have one pixel width for each stringSegment
     // FUTURE: fix canvas width and draw segmants based on length
-    canvasElement.width = stringSegmentCount;
+    canvasElement.width = stringSegmentCount * canvasElement.xZoom;
     // all canvases shall have the same height
     canvasElement.height = stringCanvasHeight;
     // get the canvas 2D context
@@ -105,57 +123,15 @@ function createStringCanvas(id, title = '') {
     canvasElement.ctx.translate(0, Math.round(stringCanvasHeight / 2));
     // add the canvas to the document
     document.getElementById("canvas-container").appendChild(canvasElement);
+    // draw the centerline
+    canvasElement.ctx.beginPath();
+    canvasElement.ctx.moveTo(0,0);
+    canvasElement.ctx.lineTo(canvasElement.width, 0);
+    canvasElement.ctx.strokeStyle = centerlineColor;
+    canvasElement.ctx.stroke();
+    canvasElement.ctx.strokeStyle = waveColor;
     // return the created canvas element
     return canvasElement;
-}
-
-function main() {
-
-    // get display elements for performance and convenience
-    var expiredTimeDisplay = document.getElementById("expired-time");
-    var loopCountDisplay = document.getElementById("loop-count");
-    var loopRateDisplay = document.getElementById("loop-rate");
-
-    // set up the string(s)
-    var gString = new uniformString(stringSegmentCount, 0.640, 0.00114, 196);
-    // create the canvas element(s) that the string(s) will be drawn in
-    var gStringCanvas = createStringCanvas("g-string-canvas", "G string");
-
-    // TESTING: naively displace part of the string a little
-    gString.segment[100].displacement[0] = 64;
-
-    // draw the string(s)
-    drawString(gString, gStringCanvas);
-
-    console.log("Main loop started");
-    // initialise perfomance measurement variables
-    loopCount = 0;
-    startTime = Date.now();
-
-    // The main loop
-    do {
-        // calculate next iteration
-        gString.advanceToNextIteration(0.001);
-
-        // redraw canvas
-//        gStringCanvas.ctx.clearRect(0, 0, gStringCanvas.width, gStringCanvas.height);
-        drawString(gString, gStringCanvas);
-
-        // performance measurement
-        // increment loop counter
-        loopCount++;
-        // recalculate expiredTime
-        expiredTime = Date.now() - startTime;
-        // recalculate loopRate
-        loopRate = loopCount / expiredTime;
-        // show the performance variables
-        expiredTimeDisplay.textContent = expiredTime / 1000;
-        loopCountDisplay.textContent = loopCount;
-        loopRateDisplay.textContent = Math.round(loopRate * 1000);
-
-    // stop after runDuration has elapsed
-    } while (expiredTime < runDuration);
-    console.log("Main loop stopped");
 }
 
 // draw a the current state of a string into a canvas
@@ -167,7 +143,81 @@ function drawString(stringObject, canvasElement) {
     canvasElement.ctx.beginPath();
     canvasElement.ctx.moveTo(0, stringObject.segment[0].displacement[currentState] * canvasElement.yZoom);
     for (var i = 1; i < segmentCount; i++) {
-        canvasElement.ctx.lineTo(i, stringObject.segment[i].displacement[currentState] * canvasElement.yZoom);
+        canvasElement.ctx.lineTo(i * canvasElement.xZoom, stringObject.segment[i].displacement[currentState] * canvasElement.yZoom);
     }
     canvasElement.ctx.stroke();
+}
+
+function main() {
+
+    // get display elements for performance and convenience
+    var elapsedRealTimeDisplay = document.getElementById("elapsed-real-time");
+    var elapsedVirtualTimeDisplay = document.getElementById("elapsed-virtual-time");
+    var loopCountDisplay = document.getElementById("loop-count");
+    var loopRateDisplay = document.getElementById("loop-rate");
+
+    // set up the string(s)
+    var guitarGString = new uniformString(stringSegmentCount, 0.640, 0.00114, 196);
+    // create the canvas element(s) that the string(s) will be drawn in
+    var guitarGStringCanvas = createStringCanvas("guitar-g-string-canvas", "Guitar G string");
+    guitarGStringCanvas.yZoom = verticalZoom;
+
+    var bassAString = new uniformString(stringSegmentCount, 0.864, 0.01723, 55);
+    var bassAStringCanvas = createStringCanvas("bass-a-string-canvas", "Bass A String");
+    bassAStringCanvas.yZoom = verticalZoom;
+
+    // TESTING: naively displace part of the string a little
+    guitarGString.segment[pluckSegment].displacement[0] = pluckDisplacement;
+    bassAString.segment[pluckSegment].displacement[0] = pluckDisplacement;
+
+    // draw the string(s)
+//    drawString(guitarGString, guitarGStringCanvas);
+
+    console.log("Main loop started");
+    // initialise perfomance measurement variables
+    loopCount = 0;
+    startTime = Date.now();
+
+    // The main loop
+    do {
+        // calculate next iteration
+        guitarGString.advanceToNextIteration(dt);
+        bassAString.advanceToNextIteration(dt);
+
+        // redraw canvas
+//        guitarGStringCanvas.ctx.clearRect(0, 0, guitarGStringCanvas.width, guitarGStringCanvas.height);
+//        drawString(guitarGString, guitarGStringCanvas);
+
+        // performance measurement
+        // increment loop counter
+        loopCount++;
+        // recalculate elapsed time
+        elapsedRealTime = Date.now() - startTime;
+        elapsedVirtualTime += dt;
+        // recalculate loopRate
+        loopRate = loopCount / elapsedRealTime;
+        // show the performance variables
+        elapsedRealTimeDisplay.textContent = elapsedRealTime / 1000;
+        elapsedVirtualTimeDisplay.textContent = elapsedVirtualTime;
+        loopCountDisplay.textContent = loopCount;
+        loopRateDisplay.textContent = Math.round(loopRate * 1000);
+
+        console.log('Loop #: ' + loopCount); // DEBUG
+        console.log('State: ' + bassAString.state); // DEBUG
+        console.log('a = ' + bassAString.segment[pluckSegment].acceleration) // DEBUG
+        console.log('v = ' + bassAString.segment[pluckSegment].velocity[bassAString.state]); // DEBUG
+        console.log('d = ' + bassAString.segment[pluckSegment].displacement[bassAString.state]); // DEBUG
+
+    // stop after runDuration has elapsed
+//    } while (elapsedTime < runDuration);
+    } while (loopCount < stopAfterNIterations); // DEBUG
+
+    console.log("Main loop stopped");
+    drawString(guitarGString, guitarGStringCanvas);
+    drawString(bassAString, bassAStringCanvas);
+}
+
+window.onload = function() {
+    // start the main loop
+    main();
 }
