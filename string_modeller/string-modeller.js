@@ -1,8 +1,8 @@
-const stopAfterNIterations = 1000;
+const stopAfterNIterations = 10000;
 const dt = 0.00001;
-const verticalZoom = 10;
+const verticalZoom = 0.1;
 var pluckPoint = 0.5; // set within the range (0, 1)
-var pluckDisplacement = 0.0001;
+var pluckDisplacement = 0.001;
 
 // styling
 var centerlineColor = "#ff8888";
@@ -23,7 +23,7 @@ var runDuration = 40;
 var targetSampleRate = 48000;
 
 // number of segments to divide a string into
-var stringSegmentCount = 2**4 * 3**2;
+var stringSegmentCount = 2**6 * 3**2 * 5;
 console.log('# segments: ' + stringSegmentCount);
 // the point at which the string will be plicked
 var pluckSegment = Math.round(pluckPoint * stringSegmentCount);
@@ -44,14 +44,19 @@ var stringSegment = function(length, mass) {
 }
 
 // Constructor for an object describing a string with uniform density along its length.
-// Use SI units: m, kg/m, Hz
-var uniformString = function(segmentCount, length, massPerUnitLength, frequency) {
+// Use SI units: 
+//  length in m
+//  mass per unit length in kg/m
+//  stiffness in N/m (see Hooke's Law https://en.wikipedia.org/wiki/Hooke%27s_law)
+//  frequency in Hz
+var uniformString = function(segmentCount, length, massPerUnitLength, stiffness, frequency) {
     // state alternates between 0 and 1 to indicate which set of variables is current
     this.state = 0;
     // We model the string as n = segmentCount point masses
     this.segmentCount = segmentCount;
     this.length = length;
     this.massPerUnitLength = massPerUnitLength;
+    this.stiffness = stiffness;
     this.tension = Math.pow(2 * length * frequency, 2) * massPerUnitLength;
     // the point masses are joined by n-1 weightless springs.
     var lengthPerSegment = length / (segmentCount - 1);
@@ -82,11 +87,15 @@ var uniformString = function(segmentCount, length, massPerUnitLength, frequency)
                 this.segment[i].acceleration = 0;
             } else {
                 // calculate acceleration
+                var k = this.stiffness;
                 var dx1 = this.segment[i-1].length;
                 var dy1 = this.segment[i-1].displacement[currentState] - this.segment[i].displacement[currentState];
+                var l1 = Math.sqrt(dx1*dx1 + dy1*dy1);
                 var dx2 = this.segment[i].length;
                 var dy2 = this.segment[i+1].displacement[currentState] - this.segment[i].displacement[currentState];
-                this.segment[i].acceleration = this.tension / this.segment[i].mass * (dy1/Math.sqrt(dx1*dx1 + dy1*dy1) + dy2/Math.sqrt(dx2*dx2 + dy2*dy2));
+                var l2 = Math.sqrt(dx2*dx2 + dy2*dy2);
+                // account for increase in tension due to stretching, resolve forces vertically and divide by mass
+                this.segment[i].acceleration = (((l1 - dx1)/k + this.tension)*dy1/l1 + ((l2 - dx2)/k + this.tension)*dy2/l2) / this.segment[i].mass;
                 // calculate velocity
                 this.segment[i].velocity[nextState] = this.segment[i].velocity[currentState] + dt * this.segment[i].acceleration;
                 // calculate displacement
@@ -103,7 +112,7 @@ function createStringCanvas(id, title = '') {
     var canvasElement = document.createElement("canvas");
     canvasElement.id = id;
     canvasElement.title = title;
-    canvasElement.xZoom = 3;
+    canvasElement.xZoom = 1;
     canvasElement.yZoom = 1;
     canvasElement.classList.add("string-canvas");
     if (title == '') {
@@ -157,12 +166,12 @@ function main() {
     var loopRateDisplay = document.getElementById("loop-rate");
 
     // set up the string(s)
-    var guitarGString = new uniformString(stringSegmentCount, 0.640, 0.00114, 196);
+    var guitarGString = new uniformString(stringSegmentCount, 0.640, 0.00114, 1000, 196);
     // create the canvas element(s) that the string(s) will be drawn in
     var guitarGStringCanvas = createStringCanvas("guitar-g-string-canvas", "Guitar G string");
     guitarGStringCanvas.yZoom = verticalZoom;
 
-    var bassAString = new uniformString(stringSegmentCount, 0.864, 0.01723, 55);
+    var bassAString = new uniformString(stringSegmentCount, 0.864, 0.01723, 1000, 55);
     var bassAStringCanvas = createStringCanvas("bass-a-string-canvas", "Bass A String");
     bassAStringCanvas.yZoom = verticalZoom;
 
