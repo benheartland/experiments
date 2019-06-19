@@ -1,0 +1,16 @@
+body {
+  font-family: monospace;
+  font-size: 10pt;
+  color: #808080;
+  background-color: black;
+}
+
+input {
+  font: inherit;
+  width: 4em;
+}
+
+.cellular-automaton {
+  margin: 1em auto;
+}
+
