@@ -1,7 +1,109 @@
 function onLoad() {
-  cellularAutomaton = new CellularAutomaton('cellular-automaton', 200, 200, 500);
+  cellularAutomaton = new CellularAutomaton('cellular-automaton', 200, 200, 200, 9, 9);
   cellularAutomaton.appendAsChildOfElementWithId('body');
-  cellularAutomaton.drawStepToCanvas();
+}
+
+// Adapted from Jon Kantner's function at https://css-tricks.com/converting-color-spaces-in-javascript/#article-header-id-11
+// Parameters:
+// h = hue (degrees)
+// s = saturation [0, 1)
+// l = lightness [0, 1)
+// Returns an object {r, g, b} containg the converted RGB values
+function HSLToRGB(h,s,l) {
+
+  // bring h into the range [0, 360)
+  if (h < 0) {
+    h = 360 + (h % 360);
+  } else {
+    h = h % 360;
+  }
+
+  let c = (1 - Math.abs(2 * l - 1)) * s,
+      x = c * (1 - Math.abs((h / 60) % 2 - 1)),
+      m = l - c/2,
+      r = 0,
+      g = 0,
+      b = 0;
+
+  if (0 <= h && h < 60) {
+    r = c; g = x; b = 0;
+  } else if (60 <= h && h < 120) {
+    r = x; g = c; b = 0;
+  } else if (120 <= h && h < 180) {
+    r = 0; g = c; b = x;
+  } else if (180 <= h && h < 240) {
+    r = 0; g = x; b = c;
+  } else if (240 <= h && h < 300) {
+    r = x; g = 0; b = c;
+  } else if (300 <= h && h < 360) {
+    r = c; g = 0; b = x;
+  }
+  r = Math.round((r + m) * 255);
+  g = Math.round((g + m) * 255);
+  b = Math.round((b + m) * 255);
+
+  return {r, g, b};
+}
+
+// class defining convolution matrices
+class ConvolutionMatrix {
+  // Takes the "radius" of the matrix in each dimension as parameter, i.e. the number of
+  // cells from the centre cell to the edge, including the centre cell
+  constructor(_radiusX, _radiusY) {
+    this.radiusX = _radiusX;
+    this.radiusY = _radiusY;
+    // calculate the size of the matrix in each dimension
+    this.sizeX = _radiusX * 2 - 1;
+    this.sizeY = _radiusY * 2 - 1;
+    // create the matrix
+    this.matrixElement = new Array(this.sizeX);
+    for(var x = 0; x < this.sizeX; x++) {
+      this.matrixElement[x] = new Array(this.sizeY);
+    }
+  }
+  
+  // method to randomise the matrix values to values in the range [-1, 1)
+  randomise() {
+    for(var mY = 0; mY < this.sizeY; mY++) {
+      for(var mX = 0; mX < this.sizeX; mX++) {
+        this.matrixElement[mX][mY] = 2*Math.random() - 1;
+      }
+    }      
+  }
+  
+  // returns the sum of all the values in the matrix
+  getSum() {
+    var sum = 0;
+    for(var mY = 0; mY < this.sizeY; mY++) {
+      for(var mX = 0; mX < this.sizeX; mX++) {
+        sum += this.matrixElement[mX][mY];
+      }
+    }    
+    return sum;
+  }
+  
+  // returns the sum of all the *absolute* values in the matrix
+  getAbsSum() {
+    var absSum = 0;
+    for(var mY = 0; mY < this.sizeY; mY++) {
+      for(var mX = 0; mX < this.sizeX; mX++) {
+        absSum += Math.abs(this.matrixElement[mX][mY]);
+      }
+    }    
+    return absSum;
+  }
+  
+  // returns the sum of all the values in the matrix
+  getRms() {
+    var sumOfSquares = 0;
+    for(var mY = 0; mY < this.sizeY; mY++) {
+      for(var mX = 0; mX < this.sizeX; mX++) {
+        sumOfSquares += this.matrixElement[mX][mY] ** 2;
+      }
+    }
+    return Math.sqrt(sumOfSquares / (this.sizeY * this.sizeY));
+  }
+
 }
 
 // class defining an option for the post-convolution function
@@ -19,20 +121,8 @@ class PostConvolutionFunctionOption {
 // class defining Cellular Automaton
 class CellularAutomaton {
 
-  get currentDisplayStep() {
-    return this.step[this.currentDisplayStepIndex];
-  }
-
   get currentDrawingStep() {
     return this.step[this.currentDrawingStepIndex];
-  }
-
-  get currentDisplayCanvas() {
-    return this.canvas[this.currentDisplayCanvasIndex];
-  }
-
-  get currentDrawingCanvas() {
-    return this.canvas[this.currentDrawingCanvasIndex];
   }
 
   // read the UI value of parameter "coefficient p", used in the post-convolution function
@@ -72,31 +162,44 @@ class CellularAutomaton {
     this.iterationCounter.innerText = n.toString();
   }
 
-  constructor(_id, _gridSizeX, _gridSizeY, _minimumStepDuration = 40, _convolutionMatrixSizeX = 5, _convolutionMatrixSizeY = 5, _stepCount = 2) {
+  constructor(_id, _gridSizeX, _gridSizeY, _minimumStepDuration = 40, _convolutionMatrixRadiusX = 3, _convolutionMatrixRadiusY = 3, _stepCount = 2) {
     // used to pass this object into child objects.
     var cellularAutomaton = this;
 
-    // create the control panel (not added to the document at this point).
-    this.createControlPanel();
+    // transfer input variables to object properties
+    // ID for the cellularAutomaton object
+    this.id = _id
+    // width of the automaton's grid
+    this.gridSizeX = _gridSizeX;
+    // height of the automaton grid
+    this.gridSizeY = _gridSizeY;
+    // minumum duration of each step, in milliseconds
+    this.minimumStepDuration = _minimumStepDuration;
+    // number of steps stored by the automaton. Larger numbers allow more
+    // history to be considered in the convolution, as well as more buffering.
+    this.stepCount = _stepCount;
 
-    // psuedo-private properties
+
+    // psuedo-private properties. Do not access directly, use their getters and setters instead.
     this._coefficientP;
     this._offsetK;
     this._iterationCount;
 
-    this.id = _id                     // ID for the cellularAutomaton object
-    this.gridSizeX = _gridSizeX;      // width of the automaton's grid
-    this.gridSizeY = _gridSizeY;      // height of the automaton grid
+    // set up the convolution matrix
+    this.convolutionMatrix = new ConvolutionMatrix(_convolutionMatrixRadiusX, _convolutionMatrixRadiusY);
+    this.convolutionMatrix.randomise();
 
-    this.minimumStepDuration = _minimumStepDuration; // minumum duration of each step, in milliseconds
-    this.iterationCount = 0;      // Set the iteration count to zero
+    // create the control panel (not added to the document at this point).
+    this.createControlPanel();
 
-    // number of steps stored by the automaton. Larger numbers allow history to be considered in the convolution, as well as
-    // more buffering.
-    this.stepCount = _stepCount;
+    // Set initial values for post-convolution function parameters
+    this.coefficientP = 0.2;
+    this.offsetK = 0.0;
+    // Set the iteration count to zero
+    this.iterationCount = 0;
+
     // make each step an item in an array
-    this.currentDisplayStepIndex = 0;
-    this.currentDrawingStepIndex = 1;
+    this.currentDrawingStepIndex = 0;
     this.step = new Array(this.stepCount);
     // for each step, set up a grid of cells
     // a single cell can be accessed with: this.step[n].cell[x][y]
@@ -105,23 +208,9 @@ class CellularAutomaton {
       this.step[n].cell = new Array(this.gridSizeX);
       for(var x = 0; x < this.gridSizeX; x++) {
         this.step[n].cell[x] = new Array(this.gridSizeY);
-        this.step[n].cell[x].fill(0);
+//        this.step[n].cell[x].fill(0);
       }
     }
-
-    // set up the convolution matrix
-    this.convolutionMatrixSizeX = _convolutionMatrixSizeX;  // width of the convolution matrix
-    this.convolutionMatrixSizeY = _convolutionMatrixSizeY;  // height of the convolution matrix
-    // work out the "radius" of the matrix in each dimension, i.e. the offset that should be applied to put
-    // the current working cell in the centre.
-    this.convolutionMatrixRadiusX = (this.convolutionMatrixSizeX - 1)/2;
-    this.convolutionMatrixRadiusY = (this.convolutionMatrixSizeY - 1)/2;
-    this.convolutionMatrix = new Array(this.convolutionMatrixSizeX);
-    for(var x = 0; x < this.convolutionMatrixSizeX; x++) {
-      this.convolutionMatrix[x] = new Array(this.convolutionMatrixSizeY);
-    }
-    // Fill the matrix with random values
-    this.randomiseConvolutionMatrix();
 
 /*
     // Sand dunes
@@ -153,56 +242,33 @@ class CellularAutomaton {
       // N.B. Theoretically, tan can return undefined values, so we handle these by turning them into zeros.
       new PostConvolutionFunctionOption('tan', function(x) {var tanResult = Math.tan(cellularAutomaton.coefficientP * x); return isNaN(result) ? cellularAutomaton.offsetK : tanResult + cellularAutomaton.offsetK;}, 'tan(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>')
     ]
-    // Set initial values for post-convolution function parameters
-    this.coefficientP = 0.2;
-    this.offsetK = 0.0;
-//    this.setAndUpdateCoefficientP(-0.21);
-//    this.setAndUpdateOffsetK(0.0);
+    // pick one as the default
     this.postConvolutionFunction = this.postConvolutionFunctionOption[1].f;
 
-    // set up canvasses to draw on.
-    this.zoom = 4; 
-    this.canvasCount = 2;
-    this.currentDisplayCanvasIndex = 0;
-    this.currentDrawingCanvasIndex = 1;
-    this.canvas = new Array(this.canvasCount);
-    // Create canvases. One will be visible while the others are hidden for drawing on.
-    for(var i = 0; i < this.canvasCount; i++) {
-      this.canvas[i] = document.createElement('canvas');
-      this.canvas[i].style.display = i == this.currentDisplayCanvasIndex ? 'initial' : 'none';
-      // using CSS zoom gives nicely interpolated zooming, at least in Chrome
-      this.canvas[i].style.transformOrigin = 'top left';
-      this.canvas[i].style.transform = 'scale(' + this.zoom + ')';
-      this.canvas[i].width = this.gridSizeX;
-      this.canvas[i].height = this.gridSizeY;
-      this.canvas[i].context = this.canvas[i].getContext('2d');
+    // set up a canvas to draw on.
+    this.zoom = 4;
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = this.gridSizeX;
+    this.canvas.height = this.gridSizeY;
+    this.canvas.context = this.canvas.getContext('2d');
+    // an ImageData object the same size as the canvas, where the output image can be constructed.
+    this.canvas.imageData = this.canvas.context.createImageData(this.canvas.width, this.canvas.height);
+    // a method we can call to draw the image data into the canvas 
+    this.canvas.drawImageData = function() {
+      this.context.putImageData(this.imageData, 0, 0);
     }
+
+    // using CSS zoom gives nicely interpolated zooming, at least in Chrome
+    this.canvas.style.transformOrigin = 'top left';
+    this.canvas.style.transform = 'scale(' + this.zoom + ')';
 
     // hue (colour) variables
     this.hueCentre = 30; // [0, 360)
     this.hueSpreadCoefficient = 30; // [0,)
 
     // draw the current state
-    this.drawStepToCanvas();
+    this.canvas.drawImageData();
 
-  }
-
-  randomiseConvolutionMatrix() {
-    for(var mY = 0; mY < this.convolutionMatrixSizeY; mY++) {
-      for(var mX = 0; mX < this.convolutionMatrixSizeX; mX++) {
-        this.convolutionMatrix[mY][mX] = 2*Math.random() - 1;
-      }
-    }
-  }
-
-  getconvolutionMatrixSum() {
-    var sum = 0;
-    for(var mY = 0; mY < this.convolutionMatrixSizeY; mY++) {
-      for(var mX = 0; mX < this.convolutionMatrixSizeX; mX++) {
-        sum += this.convolutionMatrix[mY][mX];
-      }
-    }    
-    return sum;
   }
 
   // randomises the cell values of all steps
@@ -214,7 +280,7 @@ class CellularAutomaton {
         }
       }
     }
-    this.drawStepToCanvas();
+    this.canvas.drawImageData();
     this.iterationCount = 0;
   }
 
@@ -239,7 +305,7 @@ class CellularAutomaton {
     this.controlPanel.playButton = addControlButton('Play', function() {_cellularAutomaton.play()});
     this.controlPanel.pauseButton = addControlButton('Pause', function() {_cellularAutomaton.pause()});
     this.controlPanel.randomiseGridButton = addControlButton('Randomise <u>G</u>rid', function() {_cellularAutomaton.randomiseGrid()});
-    this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_cellularAutomaton.randomiseConvolutionMatrix()});
+    this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_cellularAutomaton.convolutionMatrix.randomise()});
     // Add parameter inputs
     var addNumberInput = function(_inputId, _labelText, _onchangeFunction, _step = 0.01) {
       var labelElement;
@@ -269,7 +335,6 @@ class CellularAutomaton {
 
     // set up keyboard shortcuts
     _cellularAutomaton.controlPanel.onkeydown = function(e) {
-      console.log(e.key);
       switch(e.key) {
         case " ": case "Spacebar":
           if (_cellularAutomaton.stepTimer) {
@@ -278,7 +343,7 @@ class CellularAutomaton {
             _cellularAutomaton.play();
           }
         break;
-        case "m": case "M": _cellularAutomaton.randomiseConvolutionMatrix(); break;
+        case "m": case "M": _cellularAutomaton.convolutionMatrix.randomise(); break;
         case "g": case "G": _cellularAutomaton.randomiseGrid(); break;
         case "p": case "P": _cellularAutomaton.controlPanel.coefficentPInput.focus(); break;
         case "k": case "K": _cellularAutomaton.controlPanel.offsetKInput.focus(); break;
@@ -297,76 +362,68 @@ class CellularAutomaton {
     // Append control panel as child elements of the container div.
     this.containerDiv.appendChild(this.controlPanel);
 
-    // Append canvases as child elements of the div.
-    for(var i = 0; i < this.canvasCount; i++) {
-      this.containerDiv.appendChild(this.canvas[i]);
-    }
+    // Append canvas as a child elementa of the div.
+    this.containerDiv.appendChild(this.canvas);
+
     // add the container div to the document
     document.getElementById(elementId).appendChild(this.containerDiv);
   }
 
-  // draws a single pixel on the specified canvas. Usages:
-  //    hue only (saturated):      drawDot(canvas, h)
-  //    hue, saturation:           drawDot(canvas, h, s)
-  //    hue, saturation, lighness: drawDot(canvas, h, s, l)
-  drawDot(canvas, x, y, h, s = 1, l = 0.5) {
-    canvas.context.fillStyle = "hsl("+ (this.hueSpreadCoefficient*h + this.hueCentre) +","+ 100*s +"%,"+ 100*l +"%)";
-    canvas.context.fillRect(x, y, 1, 1);
-  }
-
-  // draws the specified step's grid to the specified canvas
-  // Defaults to using the current drawing step and canvas
-  drawStepToCanvas(_step = this.currentDrawingStep, _canvas = this.currentDrawingCanvas) {
-    for(var y = 0; y < this.gridSizeY; y++) {
-      for(var x = 0; x < this.gridSizeX; x++) {
-        var hue = _step.cell[x][y];
-        var saturation = Math.max(Math.min((_step.cell[x][y] + 1.0)/2.0, 1), 0);
-        this.drawDot(_canvas, x, y, hue);
-      }
-    }
-  }
+  draw
 
   // advance to the next step
   advanceStep() {
 
-    // calculate the next step and canvas indexes
-    this.currentDrawingStepIndex = (this.currentDisplayStepIndex + 1) % this.stepCount;
-    this.currentDrawingCanvasIndex = (this.currentDisplayCanvasIndex + 1) % this.canvasCount;
+    // draw the current image data to the canvas
+    this.canvas.drawImageData();
+
+    // move to the next step
+    this.currentDrawingStepIndex++;
+    this.currentDrawingStepIndex %= this.stepCount;
+
+    // increment the iteration count
+    this.iterationCount++;
 
     // calculate the next step's grid
+    var imageDataPointer = 0;
     for(var y = 0; y < this.gridSizeY; y++) {
       for(var x = 0; x < this.gridSizeX; x++) {
         var cumulativeTotal = 0;
-        for(var mY = 0; mY < this.convolutionMatrixSizeY; mY++) {
-          for(var mX = 0; mX < this.convolutionMatrixSizeX; mX++) {
-            var dX = (x - this.convolutionMatrixRadiusX + mX + this.gridSizeX) % this.gridSizeX;
-            var dY = (y - this.convolutionMatrixRadiusY + mY + this.gridSizeY) % this.gridSizeY;
-            cumulativeTotal += this.convolutionMatrix[mX][mY]*this.currentDisplayStep.cell[dX][dY];
+        for(var mY = 0; mY < this.convolutionMatrix.sizeY; mY++) {
+          for(var mX = 0; mX < this.convolutionMatrix.sizeX; mX++) {
+            var dX = (x - this.convolutionMatrix.radiusX + mX + this.gridSizeX) % this.gridSizeX;
+            var dY = (y - this.convolutionMatrix.radiusY + mY + this.gridSizeY) % this.gridSizeY;
+            cumulativeTotal += this.convolutionMatrix.matrixElement[mX][mY]*this.currentDrawingStep.cell[dX][dY];
           }
         }
-        this.currentDrawingStep.cell[x][y] = this.postConvolutionFunction(cumulativeTotal);
+        // pass the result of the matrix convolution through the post-convolution function
+        var _value = this.postConvolutionFunction(cumulativeTotal)
+        // store the value in the corresponding cell in the next step
+        this.currentDrawingStep.cell[x][y] = _value;
+        // set the corresponding pixel in the image data array
+        var rgbValues = HSLToRGB(_value * this.hueSpreadCoefficient + this.hueCentre, 1, 0.5);
+        this.canvas.imageData.data[imageDataPointer] = rgbValues.r; //red
+        imageDataPointer++;
+        this.canvas.imageData.data[imageDataPointer] = rgbValues.g; //green
+        imageDataPointer++;
+        this.canvas.imageData.data[imageDataPointer] = rgbValues.b; // blue
+        imageDataPointer++;
+        this.canvas.imageData.data[imageDataPointer] = 255;         // alpha
+        imageDataPointer++;
       }
     }
 
-    // draw the next step's grid to the next canvas
-    this.drawStepToCanvas(this.currentDrawingStep, this.currentDrawingCanvas);
-
-    // switch the display canvas
-    this.currentDrawingCanvas.style.display = 'initial';
-    this.currentDisplayCanvas.style.display = 'none';
-
-    // move on to the next step and canvas
-    this.currentDisplayStepIndex = this.currentDrawingStepIndex;
-    this.currentDisplayCanvasIndex = this.currentDrawingCanvasIndex;
-
-    this.iterationCount++;
   }
 
+  // start the automaton
   play() {
+    // a timerInterval drives the process. Check that it does not already exist; if it does not, create it. Otherwise do nothing.
     if (!this.stepTimer) this.stepTimer = window.setInterval(function() {cellularAutomaton.advanceStep()}, cellularAutomaton.minimumStepDuration);
   }
 
+  // pause the automaton
   pause() {
+    // a timerInterval drives the process. Check that it exists; if it does, clear it and make its ID variable undefined. Otherwise do nothing.
     if (this.stepTimer) {
       window.clearInterval(this.stepTimer);
       this.stepTimer = undefined;
