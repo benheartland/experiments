@@ -1,7 +1,7 @@
 body {
   font-family: monospace;
   font-size: 10pt;
-  color: #808080;
+  color: #c0c0c0;
   background-color: black;
 }
 
@@ -18,6 +18,25 @@ input {
   margin: 1em auto;
 }
 
+.cellular-automaton canvas {
+  border: 5px solid black;
+  visibility: hidden;
+}
+
+.cellular-automaton-control-panel {
+  border: 1px solid #000;
+  background-color: rgba(0, 0, 0, 0.6);
+  width: max-content;
+  padding: 0.5em;
+}
+
 .cellular-automaton-control-panel>* {
   margin: 0.5em;
+}
+
+.cellular-automaton-control-panel button {
+  border:2px solid black;
+}
+.cellular-automaton-control-panel button.active {
+  border-color: yellow;
 }

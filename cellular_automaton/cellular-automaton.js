@@ -1,5 +1,5 @@
 function onLoad() {
-  cellularAutomaton = new CellularAutomaton('cellular-automaton', 200, 200, 200, 9, 9);
+  cellularAutomaton = new CellularAutomaton('cellular-automaton', 240, 135, 40, 5, 5);
   cellularAutomaton.appendAsChildOfElementWithId('body');
 }
 
@@ -70,7 +70,7 @@ class ConvolutionMatrix {
       }
     }      
   }
-  
+
   // returns the sum of all the values in the matrix
   getSum() {
     var sum = 0;
@@ -81,7 +81,7 @@ class ConvolutionMatrix {
     }    
     return sum;
   }
-  
+
   // returns the sum of all the *absolute* values in the matrix
   getAbsSum() {
     var absSum = 0;
@@ -92,7 +92,7 @@ class ConvolutionMatrix {
     }    
     return absSum;
   }
-  
+
   // returns the sum of all the values in the matrix
   getRms() {
     var sumOfSquares = 0;
@@ -121,9 +121,18 @@ class PostConvolutionFunctionOption {
 // class defining Cellular Automaton
 class CellularAutomaton {
 
-  get currentDrawingStep() {
-    return this.step[this.currentDrawingStepIndex];
+  get currentDisplayStep() {
+    return this.step[this.currentDisplayStepIndex];
   }
+
+  get currentReferenceStep() {
+    return this.step[this.currentReferenceStepIndex];
+  }
+
+  get currentWorkingStep() {
+    return this.step[this.currentWorkingStepIndex];
+  }
+
 
   // read the UI value of parameter "coefficient p", used in the post-convolution function
   readCoefficientPInput() {
@@ -164,7 +173,7 @@ class CellularAutomaton {
 
   constructor(_id, _gridSizeX, _gridSizeY, _minimumStepDuration = 40, _convolutionMatrixRadiusX = 3, _convolutionMatrixRadiusY = 3, _stepCount = 2) {
     // used to pass this object into child objects.
-    var cellularAutomaton = this;
+    var _this = this;
 
     // transfer input variables to object properties
     // ID for the cellularAutomaton object
@@ -192,14 +201,28 @@ class CellularAutomaton {
     // create the control panel (not added to the document at this point).
     this.createControlPanel();
 
-    // Set initial values for post-convolution function parameters
-    this.coefficientP = 0.2;
-    this.offsetK = 0.0;
     // Set the iteration count to zero
     this.iterationCount = 0;
 
+    // ****************************************************************************************************
+    // *** PARAMETERS *************************************************************************************
+    // ****************************************************************************************************
+
+    // initial values for post-convolution function parameters
+    this.coefficientP = 5;
+    this.offsetK = 0.0;
+    // colour variables
+    this.hueCentre = 180; // [0, 360)
+    this.hueSpreadCoefficient = 720; // [0,)
+    this.lightnessSpread = 0.5 // [-0.5, 0.5]
+    this.saturationSpread = 0.5 // [-0.5, 0.5]
+
+    // ****************************************************************************************************
+    // ****************************************************************************************************
+    // ****************************************************************************************************
+
+
     // make each step an item in an array
-    this.currentDrawingStepIndex = 0;
     this.step = new Array(this.stepCount);
     // for each step, set up a grid of cells
     // a single cell can be accessed with: this.step[n].cell[x][y]
@@ -208,9 +231,13 @@ class CellularAutomaton {
       this.step[n].cell = new Array(this.gridSizeX);
       for(var x = 0; x < this.gridSizeX; x++) {
         this.step[n].cell[x] = new Array(this.gridSizeY);
-//        this.step[n].cell[x].fill(0);
       }
     }
+    // 
+    this.currentDisplayStepIndex = 0;
+    this.currentReferenceStepIndex = 0;
+    this.currentWorkingStepIndex = 1;
+
 
 /*
     // Sand dunes
@@ -236,14 +263,15 @@ class CellularAutomaton {
 
     // options for the post-convolution function
     this.postConvolutionFunctionOption = [
-      new PostConvolutionFunctionOption('linear', function(x) {return cellularAutomaton.coefficientP*x + cellularAutomaton.offsetK;}, '<span class="function-parameter">p</span>*<span class="function-variable">x</span> + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('sin', function(x) {return Math.sin(cellularAutomaton.coefficientP*x) + cellularAutomaton.offsetK;}, 'sin(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('cos', function(x) {return Math.cos(cellularAutomaton.coefficientP*x) + cellularAutomaton.offsetK;}, 'cos(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('linear', function(x) {return _this.coefficientP*x - _this.offsetK;}, '<span class="function-parameter">p</span>*<span class="function-variable">x</span> + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('sine', function(x) {return Math.sin(_this.coefficientP*x - _this.offsetK);}, 'sin(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('cosine', function(x) {return Math.cos(_this.coefficientP*x - _this.offsetK);}, 'cos(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
       // N.B. Theoretically, tan can return undefined values, so we handle these by turning them into zeros.
-      new PostConvolutionFunctionOption('tan', function(x) {var tanResult = Math.tan(cellularAutomaton.coefficientP * x); return isNaN(result) ? cellularAutomaton.offsetK : tanResult + cellularAutomaton.offsetK;}, 'tan(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>')
+      new PostConvolutionFunctionOption('tangent', function(x) {var tanResult = Math.tan(_this.coefficientP * x - _this.offsetK); return isNaN(tanResult) ? _this.offsetK : tanResult + _this.offsetK;}, 'tan(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('s-curve', function(x) {return 1/(1 + Math.exp(-_this.coefficientP * x - _this.offsetK))}, '1/(1 + e<sup>(<span class="function-parameter">p</span>*<span class="function-variable">x</span> - <span class="function-parameter">k</span>)</sup>)')
     ]
     // pick one as the default
-    this.postConvolutionFunction = this.postConvolutionFunctionOption[1].f;
+    this.postConvolutionFunction = this.postConvolutionFunctionOption[4].f;
 
     // set up a canvas to draw on.
     this.zoom = 4;
@@ -256,15 +284,12 @@ class CellularAutomaton {
     // a method we can call to draw the image data into the canvas 
     this.canvas.drawImageData = function() {
       this.context.putImageData(this.imageData, 0, 0);
+      document.body.style.backgroundImage = 'url("' + this.toDataURL('image/png') + '")';
     }
 
     // using CSS zoom gives nicely interpolated zooming, at least in Chrome
-    this.canvas.style.transformOrigin = 'top left';
-    this.canvas.style.transform = 'scale(' + this.zoom + ')';
-
-    // hue (colour) variables
-    this.hueCentre = 30; // [0, 360)
-    this.hueSpreadCoefficient = 30; // [0,)
+//    this.canvas.style.transformOrigin = 'top left';
+//    this.canvas.style.transform = 'scale(' + this.zoom + ')';
 
     // draw the current state
     this.canvas.drawImageData();
@@ -280,13 +305,22 @@ class CellularAutomaton {
         }
       }
     }
-    this.canvas.drawImageData();
     this.iterationCount = 0;
   }
 
   createControlPanel() {
     // use the following to pass the parent object to functions etc.
-    var _cellularAutomaton = this;
+    var _this = this;
+
+    function addControlButton(_buttonHTML, _onclickFunction) {
+      var newButton = document.createElement('button')
+      newButton.innerHTML = _buttonHTML;
+      newButton.onclick = _onclickFunction;
+      newButton.className = "cellular-automaton-control-button";
+      _this.controlPanel.appendChild(newButton);
+      return newButton;
+    }
+
     // Create a div to contain the control panel
     this.controlPanel = document.createElement('div');
     this.controlPanel.id = this.id + '-control-panel';
@@ -294,18 +328,10 @@ class CellularAutomaton {
     // Add control buttons
     // buttonText (string) : the innerText of the button
     // onClickFunction (function) : the onClick function of the button
-    var addControlButton = function(_buttonHTML, _onclickFunction) {
-      var newButton = document.createElement('button')
-      newButton.innerHTML = _buttonHTML;
-      newButton.onclick = _onclickFunction;
-      newButton.className = "cellular-automaton-control-button";
-      _cellularAutomaton.controlPanel.appendChild(newButton);
-      return newButton;
-    }
-    this.controlPanel.playButton = addControlButton('Play', function() {_cellularAutomaton.play()});
-    this.controlPanel.pauseButton = addControlButton('Pause', function() {_cellularAutomaton.pause()});
-    this.controlPanel.randomiseGridButton = addControlButton('Randomise <u>G</u>rid', function() {_cellularAutomaton.randomiseGrid()});
-    this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_cellularAutomaton.convolutionMatrix.randomise()});
+    this.controlPanel.playButton = addControlButton('Play', function() {_this.play()});
+    this.controlPanel.pauseButton = addControlButton('Pause', function() {_this.pause()});
+    this.controlPanel.randomiseGridButton = addControlButton('Randomise <u>G</u>rid', function() {_this.randomiseGrid()});
+    this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_this.convolutionMatrix.randomise()});
     // Add parameter inputs
     var addNumberInput = function(_inputId, _labelText, _onchangeFunction, _step = 0.01) {
       var labelElement;
@@ -313,40 +339,41 @@ class CellularAutomaton {
       labelElement.htmlFor = _inputId;
       labelElement.innerText = _labelText;
       labelElement.className = "cellular-automaton-number-input-label";
-      _cellularAutomaton.controlPanel.appendChild(labelElement);
+      _this.controlPanel.appendChild(labelElement);
       var inputElement = document.createElement("input");
       inputElement.type = "number";
       inputElement.id = _inputId;
       inputElement.step = _step;
       inputElement.onchange = _onchangeFunction;
       inputElement.className = "cellular-automaton-number-input";
-      _cellularAutomaton.controlPanel.appendChild(inputElement);
+      _this.controlPanel.appendChild(inputElement);
       return inputElement;
     }
-    _cellularAutomaton.controlPanel.coefficentPInput = addNumberInput("coefficient-p", "p =", function() {_cellularAutomaton._coefficientP = this.value});
-    _cellularAutomaton.controlPanel.offsetKInput = addNumberInput("offset-k", "k =", function() {_cellularAutomaton._offsetK = this.value});
+    _this.controlPanel.coefficentPInput = addNumberInput("coefficient-p", "p =", function() {_this._coefficientP = this.value});
+    _this.controlPanel.offsetKInput = addNumberInput("offset-k", "k =", function() {_this._offsetK = this.value});
     // Add the iteration counter
     var iterationCounterParagraph = document.createElement("p");
     iterationCounterParagraph.innerText = "Iterations: ";
-    _cellularAutomaton.iterationCounter = document.createElement("span");
-    _cellularAutomaton.iterationCounter.id = "iteration-count";
-    iterationCounterParagraph.appendChild(_cellularAutomaton.iterationCounter);
-    _cellularAutomaton.controlPanel.appendChild(iterationCounterParagraph);
+    _this.iterationCounter = document.createElement("span");
+    _this.iterationCounter.id = "iteration-count";
+    iterationCounterParagraph.appendChild(_this.iterationCounter);
+    _this.controlPanel.appendChild(iterationCounterParagraph);
 
     // set up keyboard shortcuts
-    _cellularAutomaton.controlPanel.onkeydown = function(e) {
+    window.onkeydown = function(e) {
       switch(e.key) {
         case " ": case "Spacebar":
-          if (_cellularAutomaton.stepTimer) {
-            _cellularAutomaton.pause();
+          if (_this.stepTimer) {
+            _this.pause();
           } else {
-            _cellularAutomaton.play();
+            _this.play();
           }
         break;
-        case "m": case "M": _cellularAutomaton.convolutionMatrix.randomise(); break;
-        case "g": case "G": _cellularAutomaton.randomiseGrid(); break;
-        case "p": case "P": _cellularAutomaton.controlPanel.coefficentPInput.focus(); break;
-        case "k": case "K": _cellularAutomaton.controlPanel.offsetKInput.focus(); break;
+        case "m": case "M": _this.convolutionMatrix.randomise(); break;
+        case "g": case "G": _this.randomiseGrid(); break;
+        case "p": case "P": _this.controlPanel.coefficentPInput.focus(); break;
+        case "k": case "K": _this.controlPanel.offsetKInput.focus(); break;
+        case "c": case "C": _this.controlPanel.style.visibility == 'hidden' ? _this.controlPanel.style.visibility = 'visible' : _this.controlPanel.style.visibility = 'hidden'; break;
       }
     }
   }
@@ -373,35 +400,34 @@ class CellularAutomaton {
 
   // advance to the next step
   advanceStep() {
+    var _this = this;
 
     // draw the current image data to the canvas
-    this.canvas.drawImageData();
-
-    // move to the next step
-    this.currentDrawingStepIndex++;
-    this.currentDrawingStepIndex %= this.stepCount;
+    this.currentDisplayStepIndex++;
+    this.currentDisplayStepIndex %= this.stepCount;
+    window.requestAnimationFrame(function() {_this.canvas.drawImageData()});
 
     // increment the iteration count
     this.iterationCount++;
 
     // calculate the next step's grid
     var imageDataPointer = 0;
-    for(var y = 0; y < this.gridSizeY; y++) {
-      for(var x = 0; x < this.gridSizeX; x++) {
+    for(var gridY = 0; gridY < this.gridSizeY; gridY++) {
+      for(var gridX = 0; gridX < this.gridSizeX; gridX++) {
         var cumulativeTotal = 0;
-        for(var mY = 0; mY < this.convolutionMatrix.sizeY; mY++) {
-          for(var mX = 0; mX < this.convolutionMatrix.sizeX; mX++) {
-            var dX = (x - this.convolutionMatrix.radiusX + mX + this.gridSizeX) % this.gridSizeX;
-            var dY = (y - this.convolutionMatrix.radiusY + mY + this.gridSizeY) % this.gridSizeY;
-            cumulativeTotal += this.convolutionMatrix.matrixElement[mX][mY]*this.currentDrawingStep.cell[dX][dY];
+        for(var matrixY = 0; matrixY < this.convolutionMatrix.sizeY; matrixY++) {
+          for(var matrixX = 0; matrixX < this.convolutionMatrix.sizeX; matrixX++) {
+            var x = (gridX - this.convolutionMatrix.radiusX + matrixX + 1 + this.gridSizeX) % this.gridSizeX;
+            var y = (gridY - this.convolutionMatrix.radiusY + matrixY + 1 + this.gridSizeY) % this.gridSizeY;
+            cumulativeTotal += this.convolutionMatrix.matrixElement[matrixX][matrixY]*this.currentReferenceStep.cell[x][y];
           }
         }
         // pass the result of the matrix convolution through the post-convolution function
         var _value = this.postConvolutionFunction(cumulativeTotal)
         // store the value in the corresponding cell in the next step
-        this.currentDrawingStep.cell[x][y] = _value;
+        this.currentWorkingStep.cell[gridX][gridY] = _value;
         // set the corresponding pixel in the image data array
-        var rgbValues = HSLToRGB(_value * this.hueSpreadCoefficient + this.hueCentre, 1, 0.5);
+        var rgbValues = HSLToRGB(_value * this.hueSpreadCoefficient + this.hueCentre, _value * this.saturationSpread + 0.5, _value * this.lightnessSpread + 0.5);
         this.canvas.imageData.data[imageDataPointer] = rgbValues.r; //red
         imageDataPointer++;
         this.canvas.imageData.data[imageDataPointer] = rgbValues.g; //green
@@ -413,12 +439,22 @@ class CellularAutomaton {
       }
     }
 
+    // move to the next step
+    this.currentWorkingStepIndex++;
+    this.currentWorkingStepIndex %= this.stepCount;
+    this.currentReferenceStepIndex++;
+    this.currentReferenceStepIndex %= this.stepCount;
+    
   }
 
   // start the automaton
   play() {
     // a timerInterval drives the process. Check that it does not already exist; if it does not, create it. Otherwise do nothing.
-    if (!this.stepTimer) this.stepTimer = window.setInterval(function() {cellularAutomaton.advanceStep()}, cellularAutomaton.minimumStepDuration);
+    if (!this.stepTimer) {
+      this.stepTimer = window.setInterval(function() {cellularAutomaton.advanceStep()}, cellularAutomaton.minimumStepDuration);
+      this.controlPanel.playButton.classList.add('active');
+      this.controlPanel.pauseButton.classList.remove('active');
+    }
   }
 
   // pause the automaton
@@ -427,6 +463,8 @@ class CellularAutomaton {
     if (this.stepTimer) {
       window.clearInterval(this.stepTimer);
       this.stepTimer = undefined;
+      this.controlPanel.pauseButton.classList.add('active');
+      this.controlPanel.playButton.classList.remove('active');
     }
   }
 
