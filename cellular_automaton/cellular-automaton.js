@@ -136,7 +136,7 @@ class CellularAutomaton {
 
   // read the UI value of parameter "coefficient p", used in the post-convolution function
   readCoefficientPInput() {
-    this._coefficientP = this.controlPanel.coefficentPInput.value;
+    this._coefficientP = this.controlPanel.coefficientPInput.value;
   }
 
   // read the UI value of parameter "offset k", used in the post-convolution function
@@ -150,7 +150,7 @@ class CellularAutomaton {
   // set the value of parameter "coefficient p", used in the post-convolution function, and
   // update its value in the UI
   set coefficientP(p) {
-    this.controlPanel.coefficentPInput.value = p;
+    this.controlPanel.coefficientPInput.value = p;
     this._coefficientP = p;
   }
 
@@ -175,6 +175,9 @@ class CellularAutomaton {
     // used to pass this object into child objects.
     var _this = this;
 
+    // create the control panel (not added to the document at this point).
+    this.createControlPanel();
+
     // transfer input variables to object properties
     // ID for the cellularAutomaton object
     this.id = _id
@@ -187,6 +190,8 @@ class CellularAutomaton {
     // number of steps stored by the automaton. Larger numbers allow more
     // history to be considered in the convolution, as well as more buffering.
     this.stepCount = _stepCount;
+    // boolean, keeps track of whether the automaton is currently playing
+    this.isPlaying = false;
 
 
     // psuedo-private properties. Do not access directly, use their getters and setters instead.
@@ -197,9 +202,6 @@ class CellularAutomaton {
     // set up the convolution matrix
     this.convolutionMatrix = new ConvolutionMatrix(_convolutionMatrixRadiusX, _convolutionMatrixRadiusY);
     this.convolutionMatrix.randomise();
-
-    // create the control panel (not added to the document at this point).
-    this.createControlPanel();
 
     // Set the iteration count to zero
     this.iterationCount = 0;
@@ -214,13 +216,30 @@ class CellularAutomaton {
     // colour variables
     this.hueCentre = 180; // [0, 360)
     this.hueSpreadCoefficient = 720; // [0,)
-    this.lightnessSpread = 0.5 // [-0.5, 0.5]
+    this.lightnessSpread = -0.5 // [-0.5, 0.5]
     this.saturationSpread = 0.5 // [-0.5, 0.5]
 
     // ****************************************************************************************************
     // ****************************************************************************************************
     // ****************************************************************************************************
 
+    // set up a canvas to draw on.
+    this.zoom = 4;
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = this.gridSizeX;
+    this.canvas.height = this.gridSizeY;
+    this.canvas.context = this.canvas.getContext('2d');
+    // a method we can call to draw image data into the canvas 
+    this.canvas.drawNextStep = function() {
+      _this.currentDisplayStepIndex++;
+      _this.currentDisplayStepIndex %= _this.stepCount;
+      window.requestAnimationFrame(function() {_this.canvas.context.putImageData(_this.currentDisplayStep.imageData, 0, 0)});
+      document.body.style.backgroundImage = 'url("' + this.toDataURL('image/png') + '")';
+    }
+
+    // using CSS zoom gives nicely interpolated zooming, at least in Chrome
+//    this.canvas.style.transformOrigin = 'top left';
+//    this.canvas.style.transform = 'scale(' + this.zoom + ')';
 
     // make each step an item in an array
     this.step = new Array(this.stepCount);
@@ -232,9 +251,11 @@ class CellularAutomaton {
       for(var x = 0; x < this.gridSizeX; x++) {
         this.step[n].cell[x] = new Array(this.gridSizeY);
       }
+      // an ImageData object the same size as the canvas, where the output image for the step can be constructed.
+      this.step[n].imageData = this.canvas.context.createImageData(this.canvas.width, this.canvas.height);
     }
-    // 
-    this.currentDisplayStepIndex = 0;
+    // initially set to -1, as it is incremented to 0 the first time the draw function is called.
+    this.currentDisplayStepIndex = - 1;
     this.currentReferenceStepIndex = 0;
     this.currentWorkingStepIndex = 1;
 
@@ -273,26 +294,8 @@ class CellularAutomaton {
     // pick one as the default
     this.postConvolutionFunction = this.postConvolutionFunctionOption[4].f;
 
-    // set up a canvas to draw on.
-    this.zoom = 4;
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = this.gridSizeX;
-    this.canvas.height = this.gridSizeY;
-    this.canvas.context = this.canvas.getContext('2d');
-    // an ImageData object the same size as the canvas, where the output image can be constructed.
-    this.canvas.imageData = this.canvas.context.createImageData(this.canvas.width, this.canvas.height);
-    // a method we can call to draw the image data into the canvas 
-    this.canvas.drawImageData = function() {
-      this.context.putImageData(this.imageData, 0, 0);
-      document.body.style.backgroundImage = 'url("' + this.toDataURL('image/png') + '")';
-    }
-
-    // using CSS zoom gives nicely interpolated zooming, at least in Chrome
-//    this.canvas.style.transformOrigin = 'top left';
-//    this.canvas.style.transform = 'scale(' + this.zoom + ')';
-
-    // draw the current state
-    this.canvas.drawImageData();
+    // randomise the grid
+    this.randomiseGrid();
 
   }
 
@@ -349,7 +352,7 @@ class CellularAutomaton {
       _this.controlPanel.appendChild(inputElement);
       return inputElement;
     }
-    _this.controlPanel.coefficentPInput = addNumberInput("coefficient-p", "p =", function() {_this._coefficientP = this.value});
+    _this.controlPanel.coefficientPInput = addNumberInput("coefficient-p", "p =", function() {_this._coefficientP = this.value});
     _this.controlPanel.offsetKInput = addNumberInput("offset-k", "k =", function() {_this._offsetK = this.value});
     // Add the iteration counter
     var iterationCounterParagraph = document.createElement("p");
@@ -363,7 +366,7 @@ class CellularAutomaton {
     window.onkeydown = function(e) {
       switch(e.key) {
         case " ": case "Spacebar":
-          if (_this.stepTimer) {
+          if (_this.isPlaying) {
             _this.pause();
           } else {
             _this.play();
@@ -371,9 +374,19 @@ class CellularAutomaton {
         break;
         case "m": case "M": _this.convolutionMatrix.randomise(); break;
         case "g": case "G": _this.randomiseGrid(); break;
-        case "p": case "P": _this.controlPanel.coefficentPInput.focus(); break;
+        case "p": case "P": _this.controlPanel.coefficientPInput.focus(); break;
+        case "-": case "_": _this.coefficientP *= -1; break;
         case "k": case "K": _this.controlPanel.offsetKInput.focus(); break;
-        case "c": case "C": _this.controlPanel.style.visibility == 'hidden' ? _this.controlPanel.style.visibility = 'visible' : _this.controlPanel.style.visibility = 'hidden'; break;
+        case "c": case "C": 
+          if(_this.controlPanel.style.visibility == 'hidden') {
+            _this.controlPanel.style.visibility = 'visible';
+            document.body.style.cursor = 'inherit';
+          }
+          else {
+            _this.controlPanel.style.visibility = 'hidden';
+            document.body.style.cursor = 'none';
+          }
+        break;
       }
     }
   }
@@ -396,16 +409,10 @@ class CellularAutomaton {
     document.getElementById(elementId).appendChild(this.containerDiv);
   }
 
-  draw
-
   // advance to the next step
   advanceStep() {
-    var _this = this;
-
-    // draw the current image data to the canvas
-    this.currentDisplayStepIndex++;
-    this.currentDisplayStepIndex %= this.stepCount;
-    window.requestAnimationFrame(function() {_this.canvas.drawImageData()});
+    // draw the next step's imagedata to the canvas
+    this.canvas.drawNextStep();
 
     // increment the iteration count
     this.iterationCount++;
@@ -428,13 +435,13 @@ class CellularAutomaton {
         this.currentWorkingStep.cell[gridX][gridY] = _value;
         // set the corresponding pixel in the image data array
         var rgbValues = HSLToRGB(_value * this.hueSpreadCoefficient + this.hueCentre, _value * this.saturationSpread + 0.5, _value * this.lightnessSpread + 0.5);
-        this.canvas.imageData.data[imageDataPointer] = rgbValues.r; //red
+        this.currentWorkingStep.imageData.data[imageDataPointer] = rgbValues.r; //red
         imageDataPointer++;
-        this.canvas.imageData.data[imageDataPointer] = rgbValues.g; //green
+        this.currentWorkingStep.imageData.data[imageDataPointer] = rgbValues.g; //green
         imageDataPointer++;
-        this.canvas.imageData.data[imageDataPointer] = rgbValues.b; // blue
+        this.currentWorkingStep.imageData.data[imageDataPointer] = rgbValues.b; // blue
         imageDataPointer++;
-        this.canvas.imageData.data[imageDataPointer] = 255;         // alpha
+        this.currentWorkingStep.imageData.data[imageDataPointer] = 255;         // alpha
         imageDataPointer++;
       }
     }
@@ -450,21 +457,25 @@ class CellularAutomaton {
   // start the automaton
   play() {
     // a timerInterval drives the process. Check that it does not already exist; if it does not, create it. Otherwise do nothing.
-    if (!this.stepTimer) {
-      this.stepTimer = window.setInterval(function() {cellularAutomaton.advanceStep()}, cellularAutomaton.minimumStepDuration);
+    if (!this.isPlaying) {
+      this.isPlaying = true;
       this.controlPanel.playButton.classList.add('active');
       this.controlPanel.pauseButton.classList.remove('active');
+      // start the loop at the next animation frame
+      var _this = this;
+      this.stepTimer = window.setInterval(function(){_this.advanceStep()}, _this.minimumStepDuration);
     }
   }
 
   // pause the automaton
   pause() {
     // a timerInterval drives the process. Check that it exists; if it does, clear it and make its ID variable undefined. Otherwise do nothing.
-    if (this.stepTimer) {
-      window.clearInterval(this.stepTimer);
-      this.stepTimer = undefined;
+    if (this.isPlaying) {
+      this.isPlaying = false;
       this.controlPanel.pauseButton.classList.add('active');
       this.controlPanel.playButton.classList.remove('active');
+      var _this = this;
+      window.clearInterval(_this.stepTimer);
     }
   }
 
