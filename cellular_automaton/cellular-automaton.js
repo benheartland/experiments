@@ -215,9 +215,9 @@ class CellularAutomaton {
     this.offsetK = 0.0;
     // colour variables
     this.hueCentre = 180; // [0, 360)
-    this.hueSpreadCoefficient = 720; // [0,)
-    this.lightnessSpread = -0.5 // [-0.5, 0.5]
-    this.saturationSpread = 0.5 // [-0.5, 0.5]
+    this.hueSpreadCoefficient = 120; // [0,)
+    this.lightnessSpread = -0.1 // [-0.5, 0.5]
+    this.saturationSpread = 0.1 // [-0.5, 0.5]
 
     // ****************************************************************************************************
     // ****************************************************************************************************
@@ -231,10 +231,16 @@ class CellularAutomaton {
     this.canvas.context = this.canvas.getContext('2d');
     // a method we can call to draw image data into the canvas 
     this.canvas.drawNextStep = function() {
+      // increment the current display index (returning to zero if needed)
       _this.currentDisplayStepIndex++;
       _this.currentDisplayStepIndex %= _this.stepCount;
-      window.requestAnimationFrame(function() {_this.canvas.context.putImageData(_this.currentDisplayStep.imageData, 0, 0)});
-      document.body.style.backgroundImage = 'url("' + this.toDataURL('image/png') + '")';
+      // request to draw the image data anu
+      window.requestAnimationFrame(
+        function() {
+          _this.canvas.context.putImageData(_this.currentDisplayStep.imageData, 0, 0)
+          document.body.style.backgroundImage = 'url("' + _this.canvas.toDataURL('image/png') + '")';
+        }
+      );
     }
 
     // using CSS zoom gives nicely interpolated zooming, at least in Chrome
