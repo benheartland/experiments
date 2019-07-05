@@ -12,11 +12,8 @@ function onLoad() {
 function HSLToRGB(h,s,l) {
 
   // bring h into the range [0, 360)
-  if (h < 0) {
-    h = 360 + (h % 360);
-  } else {
-    h = h % 360;
-  }
+  h %= 360.0;
+  if (h < 0) {h += 360.0;}
 
   let c = (1 - Math.abs(2 * l - 1)) * s,
       x = c * (1 - Math.abs((h / 60) % 2 - 1)),
@@ -133,7 +130,6 @@ class CellularAutomaton {
     return this.step[this.currentWorkingStepIndex];
   }
 
-
   // read the UI value of parameter "coefficient p", used in the post-convolution function
   readCoefficientPInput() {
     this._coefficientP = this.controlPanel.coefficientPInput.value;
@@ -169,6 +165,13 @@ class CellularAutomaton {
   set iterationCount(n) {
     this._iterationCount = n;
     this.iterationCounter.innerText = n.toString();
+  }
+
+  get hueCentre() {return this._hueCentre;}
+
+  set hueCentre(h) {
+    this.controlPanel.hueCentreInput.value = h;
+    this._hueCentre = h;
   }
 
   constructor(_id, _gridSizeX, _gridSizeY, _minimumStepDuration = 40, _convolutionMatrixRadiusX = 3, _convolutionMatrixRadiusY = 3, _stepCount = 2) {
@@ -211,13 +214,13 @@ class CellularAutomaton {
     // ****************************************************************************************************
 
     // initial values for post-convolution function parameters
-    this.coefficientP = 5;
+    this.coefficientP = 0.5;
     this.offsetK = 0.0;
     // colour variables
-    this.hueCentre = 180; // [0, 360)
-    this.hueSpreadCoefficient = 120; // [0,)
-    this.lightnessSpread = -0.1 // [-0.5, 0.5]
-    this.saturationSpread = 0.1 // [-0.5, 0.5]
+    this.hueCentre = 0;
+    this.hueSpreadCoefficient = 60; // [0,)
+    this.lightnessSpread = 0.5 // [-0.5, 0.5]
+    this.saturationSpread = 0.5 // [0, 1]
 
     // ****************************************************************************************************
     // ****************************************************************************************************
@@ -295,7 +298,7 @@ class CellularAutomaton {
       new PostConvolutionFunctionOption('cosine', function(x) {return Math.cos(_this.coefficientP*x - _this.offsetK);}, 'cos(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
       // N.B. Theoretically, tan can return undefined values, so we handle these by turning them into zeros.
       new PostConvolutionFunctionOption('tangent', function(x) {var tanResult = Math.tan(_this.coefficientP * x - _this.offsetK); return isNaN(tanResult) ? _this.offsetK : tanResult + _this.offsetK;}, 'tan(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('s-curve', function(x) {return 1/(1 + Math.exp(-_this.coefficientP * x - _this.offsetK))}, '1/(1 + e<sup>(<span class="function-parameter">p</span>*<span class="function-variable">x</span> - <span class="function-parameter">k</span>)</sup>)')
+      new PostConvolutionFunctionOption('s-curve', function(x) {return 2/(1 + Math.exp(-_this.coefficientP * x - _this.offsetK)) - 1}, '2/(1 + e<sup>(<span class="function-parameter">p</span>*<span class="function-variable">x</span> - <span class="function-parameter">k</span>)</sup>) - 1')
     ]
     // pick one as the default
     this.postConvolutionFunction = this.postConvolutionFunctionOption[4].f;
@@ -367,6 +370,8 @@ class CellularAutomaton {
     _this.iterationCounter.id = "iteration-count";
     iterationCounterParagraph.appendChild(_this.iterationCounter);
     _this.controlPanel.appendChild(iterationCounterParagraph);
+    // colour controls
+    _this.controlPanel.hueCentreInput = addNumberInput("hue-centre", "Hue", function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _this._hueCentre = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1)
 
     // set up keyboard shortcuts
     window.onkeydown = function(e) {
@@ -383,6 +388,7 @@ class CellularAutomaton {
         case "p": case "P": _this.controlPanel.coefficientPInput.focus(); break;
         case "-": case "_": _this.coefficientP *= -1; break;
         case "k": case "K": _this.controlPanel.offsetKInput.focus(); break;
+        case "h": case "H": _this.controlPanel.hueCentreInput.focus(); break;
         case "c": case "C": 
           if(_this.controlPanel.style.visibility == 'hidden') {
             _this.controlPanel.style.visibility = 'visible';
@@ -440,7 +446,7 @@ class CellularAutomaton {
         // store the value in the corresponding cell in the next step
         this.currentWorkingStep.cell[gridX][gridY] = _value;
         // set the corresponding pixel in the image data array
-        var rgbValues = HSLToRGB(_value * this.hueSpreadCoefficient + this.hueCentre, _value * this.saturationSpread + 0.5, _value * this.lightnessSpread + 0.5);
+        var rgbValues = HSLToRGB( this.hueCentre + (_value*this.hueSpreadCoefficient), 1 - Math.abs(_value*this.saturationSpread), (_value*this.lightnessSpread) + 0.5);
         this.currentWorkingStep.imageData.data[imageDataPointer] = rgbValues.r; //red
         imageDataPointer++;
         this.currentWorkingStep.imageData.data[imageDataPointer] = rgbValues.g; //green
