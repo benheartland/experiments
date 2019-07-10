@@ -219,7 +219,7 @@ class CellularAutomaton {
     // colour variables
     this.hueCentre = 0;
     this.hueSpreadCoefficient = 60; // [0,)
-    this.lightnessSpread = 0.5 // [-0.5, 0.5]
+    this.lightnessSpread = 0.2 // [-0.5, 0.5]
     this.saturationSpread = 0.5 // [0, 1]
 
     // ****************************************************************************************************
