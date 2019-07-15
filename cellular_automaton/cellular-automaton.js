@@ -220,7 +220,7 @@ class CellularAutomaton {
     // ****************************************************************************************************
 
     // initial values for post-convolution function parameters
-    this.coefficientP = this.convolutionMatrix.getSum();
+    this.coefficientP = 1;
     this.offsetK = 0.0;
     // colour variables
     this.hueCentre = 0;
@@ -231,6 +231,9 @@ class CellularAutomaton {
     // ****************************************************************************************************
     // ****************************************************************************************************
     // ****************************************************************************************************
+
+    // Calculate P normalised for the current matrix.
+    this.normalisedP = this.coefficientP * this.convolutionMatrix.getSum();
 
     // set up a canvas to draw on.
     this.canvas = document.createElement('canvas');
@@ -294,12 +297,12 @@ class CellularAutomaton {
 
     // options for the post-convolution function
     this.postConvolutionFunctionOption = [
-      new PostConvolutionFunctionOption('linear', function(x) {return _this.coefficientP*x - _this.offsetK;}, '<span class="function-parameter">p</span>*<span class="function-variable">x</span> + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('sine', function(x) {return Math.sin(_this.coefficientP*x - _this.offsetK);}, 'sin(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('cosine', function(x) {return Math.cos(_this.coefficientP*x - _this.offsetK);}, 'cos(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('linear', function(x) {return _this.normalisedP*x - _this.offsetK;}, '<span class="function-parameter">p</span>*<span class="function-variable">x</span> + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('sine', function(x) {return Math.sin(_this.normalisedP*x - _this.offsetK);}, 'sin(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('cosine', function(x) {return Math.cos(_this.normalisedP*x - _this.offsetK);}, 'cos(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
       // N.B. Theoretically, tan can return undefined values, so we handle these by turning them into zeros.
-      new PostConvolutionFunctionOption('tangent', function(x) {var tanResult = Math.tan(_this.coefficientP * x - _this.offsetK); return isNaN(tanResult) ? _this.offsetK : tanResult + _this.offsetK;}, 'tan(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('s-curve', function(x) {return 2/(1 + Math.exp(-_this.coefficientP * x - _this.offsetK)) - 1}, '2/(1 + e<sup>(<span class="function-parameter">p</span>*<span class="function-variable">x</span> - <span class="function-parameter">k</span>)</sup>) - 1')
+      new PostConvolutionFunctionOption('tangent', function(x) {var tanResult = Math.tan(_this.normalisedP * x - _this.offsetK); return isNaN(tanResult) ? _this.offsetK : tanResult + _this.offsetK;}, 'tan(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('s-curve', function(x) {return 2/(1 + Math.exp(-_this.normalisedP * x - _this.offsetK)) - 1}, '2/(1 + e<sup>(<span class="function-parameter">p</span>*<span class="function-variable">x</span> - <span class="function-parameter">k</span>)</sup>) - 1')
     ]
     // pick one as the default
     this.postConvolutionFunction = this.postConvolutionFunctionOption[4].f;
@@ -344,7 +347,7 @@ class CellularAutomaton {
     this.controlPanel.playButton = addControlButton('Play', function() {_this.play()});
     this.controlPanel.pauseButton = addControlButton('Pause', function() {_this.pause()});
     this.controlPanel.randomiseGridButton = addControlButton('Randomise <u>G</u>rid', function() {_this.randomiseGrid()});
-    this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_this.convolutionMatrix.randomise(); _this.coefficientP = _this.convolutionMatrix.getSum();});
+    this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_this.convolutionMatrix.randomise();});
     // Add parameter inputs
     var addNumberInput = function(_inputId, _labelText, _onchangeFunction, _step = 0.01) {
       var labelElement;
@@ -429,6 +432,9 @@ class CellularAutomaton {
 
     // increment the iteration count
     this.iterationCount++;
+
+    // 
+    this.normalisedP = this.coefficientP * this.convolutionMatrix.getSum();
 
     // calculate the next step's grid
     var imageDataPointer = 0;
