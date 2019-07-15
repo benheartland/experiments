@@ -79,6 +79,12 @@ class ConvolutionMatrix {
     return sum;
   }
 
+  // returns 1 or -1, depending on the sign of the matrix's sum.
+  // If the sum is zero, returns 1
+  getSign() {
+    return (this.getSum() >= 0) ? 1 : -1;
+  }
+
   // returns the sum of all the *absolute* values in the matrix
   getAbsSum() {
     var absSum = 0;
@@ -227,7 +233,6 @@ class CellularAutomaton {
     // ****************************************************************************************************
 
     // set up a canvas to draw on.
-    this.zoom = 4;
     this.canvas = document.createElement('canvas');
     this.canvas.width = this.gridSizeX;
     this.canvas.height = this.gridSizeY;
@@ -245,10 +250,6 @@ class CellularAutomaton {
         }
       );
     }
-
-    // using CSS zoom gives nicely interpolated zooming, at least in Chrome
-//    this.canvas.style.transformOrigin = 'top left';
-//    this.canvas.style.transform = 'scale(' + this.zoom + ')';
 
     // make each step an item in an array
     this.step = new Array(this.stepCount);
