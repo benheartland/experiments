@@ -220,7 +220,7 @@ class CellularAutomaton {
     // ****************************************************************************************************
 
     // initial values for post-convolution function parameters
-    this.coefficientP = 0.5;
+    this.coefficientP = this.convolutionMatrix.getSum();
     this.offsetK = 0.0;
     // colour variables
     this.hueCentre = 0;
@@ -344,7 +344,7 @@ class CellularAutomaton {
     this.controlPanel.playButton = addControlButton('Play', function() {_this.play()});
     this.controlPanel.pauseButton = addControlButton('Pause', function() {_this.pause()});
     this.controlPanel.randomiseGridButton = addControlButton('Randomise <u>G</u>rid', function() {_this.randomiseGrid()});
-    this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_this.convolutionMatrix.randomise()});
+    this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_this.convolutionMatrix.randomise(); _this.coefficientP = _this.convolutionMatrix.getSum();});
     // Add parameter inputs
     var addNumberInput = function(_inputId, _labelText, _onchangeFunction, _step = 0.01) {
       var labelElement;
