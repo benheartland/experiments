@@ -1,5 +1,5 @@
 function onLoad() {
-  cellularAutomaton = new CellularAutomaton('cellular-automaton', 180, 180, 40, 5, 5);
+  cellularAutomaton = new CellularAutomaton('cellular-automaton', 180, 180, 50, 5, 5);
   cellularAutomaton.appendAsChildOfElementWithId('body');
 }
 
@@ -180,6 +180,13 @@ class CellularAutomaton {
     this._hueCentre = h;
   }
 
+  get hueSpread() {return this._hueSpread;}
+
+  set hueSpread(s) {
+    this.controlPanel.hueSpreadInput.value = s;
+    this._hueSpread = s;
+  }
+
   constructor(_id, _gridSizeX, _gridSizeY, _minimumStepDuration = 40, _convolutionMatrixRadiusX = 3, _convolutionMatrixRadiusY = 3, _stepCount = 2) {
     // used to pass this object into child objects.
     var _this = this;
@@ -207,6 +214,8 @@ class CellularAutomaton {
     this._coefficientP;
     this._offsetK;
     this._iterationCount;
+    this._hueCentre;
+    this._hueSpread;
 
     // set up the convolution matrix
     this.convolutionMatrix = new ConvolutionMatrix(_convolutionMatrixRadiusX, _convolutionMatrixRadiusY);
@@ -222,11 +231,11 @@ class CellularAutomaton {
     // initial values for post-convolution function parameters
     this.coefficientP = 1;
     this.offsetK = 0.0;
-    // colour variables
+    // initial values for colour variables
     this.hueCentre = 0;
-    this.hueSpreadCoefficient = 60; // [0,)
-    this.lightnessSpread = 0.2 // [-0.5, 0.5]
-    this.saturationSpread = 0.1 // [0, 1]
+    this.hueSpread = 60; // [0,)
+    this.saturationSpread = 0.5 // [0, 1]
+    this.lightnessSpread = 0.25 // [-0.5, 0.5]
 
     // ****************************************************************************************************
     // ****************************************************************************************************
@@ -349,11 +358,11 @@ class CellularAutomaton {
     this.controlPanel.randomiseGridButton = addControlButton('Randomise <u>G</u>rid', function() {_this.randomiseGrid()});
     this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_this.convolutionMatrix.randomise();});
     // Add parameter inputs
-    var addNumberInput = function(_inputId, _labelText, _onchangeFunction, _step = 0.01) {
+    var addNumberInput = function(_inputId, _labelHTML, _onchangeFunction, _step = 0.01) {
       var labelElement;
       labelElement = document.createElement("label");
       labelElement.htmlFor = _inputId;
-      labelElement.innerText = _labelText;
+      labelElement.innerHTML = _labelHTML;
       labelElement.className = "cellular-automaton-number-input-label";
       _this.controlPanel.appendChild(labelElement);
       var inputElement = document.createElement("input");
@@ -365,8 +374,8 @@ class CellularAutomaton {
       _this.controlPanel.appendChild(inputElement);
       return inputElement;
     }
-    _this.controlPanel.coefficientPInput = addNumberInput("coefficient-p", "p =", function() {_this._coefficientP = this.value});
-    _this.controlPanel.offsetKInput = addNumberInput("offset-k", "k =", function() {_this._offsetK = this.value});
+    _this.controlPanel.coefficientPInput = addNumberInput("coefficient-p", "p =", function() {_this._coefficientP = this.value;}, 0.01);
+    _this.controlPanel.offsetKInput = addNumberInput("offset-k", "k =", function() {_this._offsetK = this.value;}, 0.01);
     // Add the iteration counter
     var iterationCounterParagraph = document.createElement("p");
     iterationCounterParagraph.innerText = "Iterations: ";
@@ -375,7 +384,8 @@ class CellularAutomaton {
     iterationCounterParagraph.appendChild(_this.iterationCounter);
     _this.controlPanel.appendChild(iterationCounterParagraph);
     // colour controls
-    _this.controlPanel.hueCentreInput = addNumberInput("hue-centre", "Hue", function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _this._hueCentre = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1)
+    _this.controlPanel.hueCentreInput = addNumberInput("hue-centre", "<u>H</u>ue", function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _this._hueCentre = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1);
+    _this.controlPanel.hueSpreadInput = addNumberInput("hue-spread", "<u>S</u>pread", function() {_this._hueSpread = this.value;}, 1);
 
     // set up keyboard shortcuts
     window.onkeydown = function(e) {
@@ -390,9 +400,10 @@ class CellularAutomaton {
         case "m": case "M": _this.convolutionMatrix.randomise(); break;
         case "g": case "G": _this.randomiseGrid(); break;
         case "p": case "P": _this.controlPanel.coefficientPInput.focus(); break;
-        case "-": case "_": _this.coefficientP *= -1; break;
+        case "i": case "I": _this.coefficientP *= -1; break;
         case "k": case "K": _this.controlPanel.offsetKInput.focus(); break;
         case "h": case "H": _this.controlPanel.hueCentreInput.focus(); break;
+        case "s": case "S": _this.controlPanel.hueSpreadInput.focus(); break;
         case "c": case "C": 
           if(_this.controlPanel.style.visibility == 'hidden') {
             _this.controlPanel.style.visibility = 'visible';
@@ -453,7 +464,7 @@ class CellularAutomaton {
         // store the value in the corresponding cell in the next step
         this.currentWorkingStep.cell[gridX][gridY] = _value;
         // set the corresponding pixel in the image data array
-        var rgbValues = HSLToRGB( this.hueCentre + (_value*this.hueSpreadCoefficient), 1 - Math.abs(_value*this.saturationSpread), (_value*this.lightnessSpread) + 0.5);
+        var rgbValues = HSLToRGB( this._hueCentre + (_value*this._hueSpread), 1 - Math.abs(_value)*this.saturationSpread, (_value*this.lightnessSpread) + 0.5);
         this.currentWorkingStep.imageData.data[imageDataPointer] = rgbValues.r; //red
         imageDataPointer++;
         this.currentWorkingStep.imageData.data[imageDataPointer] = rgbValues.g; //green
