@@ -1,5 +1,5 @@
 function onLoad() {
-  cellularAutomaton = new CellularAutomaton('cellular-automaton', 360, 360, 40, 5, 5);
+  cellularAutomaton = new CellularAutomaton('cellular-automaton', 180, 180, 40, 5, 5);
   cellularAutomaton.appendAsChildOfElementWithId('body');
 }
 
