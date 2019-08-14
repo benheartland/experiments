@@ -173,23 +173,9 @@ class CellularAutomaton {
     this.iterationCounter.innerText = n.toString();
   }
 
-  get hueCentre() {return this._hueCentre;}
-
-  set hueCentre(h) {
-    this.controlPanel.hueCentreInput.value = h;
-    this._hueCentre = h;
-  }
-
-  get hueSpread() {return this._hueSpread;}
-
-  set hueSpread(s) {
-    this.controlPanel.hueSpreadInput.value = s;
-    this._hueSpread = s;
-  }
-
   constructor(_id, _gridSizeX, _gridSizeY, _minimumStepDuration = 40, _convolutionMatrixRadiusX = 3, _convolutionMatrixRadiusY = 3, _stepCount = 2) {
     // used to pass this object into child objects.
-    var _this = this;
+    var _cellularAutomaton = this;
 
     // create the control panel (not added to the document at this point).
     this.createControlPanel();
@@ -209,13 +195,55 @@ class CellularAutomaton {
     // boolean, keeps track of whether the automaton is currently playing
     this.isPlaying = false;
 
+    // an object for controlling colour
+    this.color = {
+
+      // pseudo-private properties
+      _hueAtZero: 0,
+      _hueSpread: 0,
+      _saturationAtZero: 0,
+      _saturationAtPlusOrMinusOne: 0,
+      _lightnessAtZero: 0,
+      _lightnessAtPlusOrMinusOne: 0,
+
+      // getters and setters
+      get hueAtZero() {return _hueAtZero;},
+      set hueAtZero(h) {
+        _cellularAutomaton.controlPanel.hueAtZeroInput.value = h;
+        this._hueAtZero = h;
+      },
+      get hueSpread() {return this._hueSpread;},
+      set hueSpread(s) {
+        _cellularAutomaton.controlPanel.hueSpreadInput.value = s;
+        this._hueSpread = s;
+      },
+      get saturationAtZero() {return _saturationAtZero;},
+      set saturationAtZero(h) {
+        _cellularAutomaton.controlPanel.saturationAtZeroInput.value = h;
+        this._saturationAtZero = h;
+      },
+      get saturationAtPlusOrMinusOne() {return this._hueSpread;},
+      set saturationAtPlusOrMinusOne(s) {
+        _cellularAutomaton.controlPanel.saturationAtPlusOrMinusOneInput.value = s;
+        this._saturationAtPlusOrMinusOne = s;
+      },
+      get lightnessAtZero() {return _lightnessAtZero;},
+      set lightnessAtZero(h) {
+        _cellularAutomaton.controlPanel.lightnessAtZeroInput.value = h;
+        this._lightnessAtZero = h;
+      },
+      get lightnessAtPlusOrMinusOne() {return this._hueSpread;},
+      set lightnessAtPlusOrMinusOne(s) {
+        _cellularAutomaton.controlPanel.lightnessAtPlusOrMinusOneInput.value = s;
+        this._lightnessAtPlusOrMinusOne = s;
+      }
+
+    }
 
     // psuedo-private properties. Do not access directly, use their getters and setters instead.
     this._coefficientP;
     this._offsetK;
     this._iterationCount;
-    this._hueCentre;
-    this._hueSpread;
 
     // set up the convolution matrix
     this.convolutionMatrix = new ConvolutionMatrix(_convolutionMatrixRadiusX, _convolutionMatrixRadiusY);
@@ -232,10 +260,12 @@ class CellularAutomaton {
     this.coefficientP = 1;
     this.offsetK = 0.0;
     // initial values for colour variables
-    this.hueCentre = 0;
-    this.hueSpread = 60; // [0,)
-    this.saturationSpread = 0.5 // [0, 1]
-    this.lightnessSpread = 0.25 // [-0.5, 0.5]
+    this.color.hueAtZero = 0;
+    this.color.hueSpread = 60; // [0,)
+    this.color.saturationAtZero = 0.5 // [0, 1]
+    this.color.saturationAtPlusOrMinusOne = 1 // [0, 1]
+    this.color.lightnessAtZero = 0.2 // [0, 1]
+    this.color.lightnessAtPlusOrMinusOne = 0.5 // [0, 1]
 
     // ****************************************************************************************************
     // ****************************************************************************************************
@@ -252,13 +282,13 @@ class CellularAutomaton {
     // a method we can call to draw image data into the canvas 
     this.canvas.drawNextStep = function() {
       // increment the current display index (returning to zero if needed)
-      _this.currentDisplayStepIndex++;
-      _this.currentDisplayStepIndex %= _this.stepCount;
+      _cellularAutomaton.currentDisplayStepIndex++;
+      _cellularAutomaton.currentDisplayStepIndex %= _cellularAutomaton.stepCount;
       // request to draw the image data anu
       window.requestAnimationFrame(
         function() {
-          _this.canvas.context.putImageData(_this.currentDisplayStep.imageData, 0, 0)
-          document.body.style.backgroundImage = 'url("' + _this.canvas.toDataURL('image/png') + '")';
+          _cellularAutomaton.canvas.context.putImageData(_cellularAutomaton.currentDisplayStep.imageData, 0, 0)
+          document.body.style.backgroundImage = 'url("' + _cellularAutomaton.canvas.toDataURL('image/png') + '")';
         }
       );
     }
@@ -306,12 +336,12 @@ class CellularAutomaton {
 
     // options for the post-convolution function
     this.postConvolutionFunctionOption = [
-      new PostConvolutionFunctionOption('linear', function(x) {return _this.normalisedP*x - _this.offsetK;}, '<span class="function-parameter">p</span>*<span class="function-variable">x</span> + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('sine', function(x) {return Math.sin(_this.normalisedP*x - _this.offsetK);}, 'sin(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('cosine', function(x) {return Math.cos(_this.normalisedP*x - _this.offsetK);}, 'cos(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('linear', function(x) {return _cellularAutomaton.normalisedP*x - _cellularAutomaton.offsetK;}, '<span class="function-parameter">p</span>*<span class="function-variable">x</span> + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('sine', function(x) {return Math.sin(_cellularAutomaton.normalisedP*x - _cellularAutomaton.offsetK);}, 'sin(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('cosine', function(x) {return Math.cos(_cellularAutomaton.normalisedP*x - _cellularAutomaton.offsetK);}, 'cos(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
       // N.B. Theoretically, tan can return undefined values, so we handle these by turning them into zeros.
-      new PostConvolutionFunctionOption('tangent', function(x) {var tanResult = Math.tan(_this.normalisedP * x - _this.offsetK); return isNaN(tanResult) ? _this.offsetK : tanResult + _this.offsetK;}, 'tan(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('s-curve', function(x) {return 2/(1 + Math.exp(-_this.normalisedP * x - _this.offsetK)) - 1}, '2/(1 + e<sup>(<span class="function-parameter">p</span>*<span class="function-variable">x</span> - <span class="function-parameter">k</span>)</sup>) - 1')
+      new PostConvolutionFunctionOption('tangent', function(x) {var tanResult = Math.tan(_cellularAutomaton.normalisedP * x - _cellularAutomaton.offsetK); return isNaN(tanResult) ? _cellularAutomaton.offsetK : tanResult + _cellularAutomaton.offsetK;}, 'tan(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
+      new PostConvolutionFunctionOption('s-curve', function(x) {return 2/(1 + Math.exp(-_cellularAutomaton.normalisedP * x - _cellularAutomaton.offsetK)) - 1}, '2/(1 + e<sup>(<span class="function-parameter">p</span>*<span class="function-variable">x</span> - <span class="function-parameter">k</span>)</sup>) - 1')
     ]
     // pick one as the default
     this.postConvolutionFunction = this.postConvolutionFunctionOption[4].f;
@@ -335,14 +365,14 @@ class CellularAutomaton {
 
   createControlPanel() {
     // use the following to pass the parent object to functions etc.
-    var _this = this;
+    var _cellularAutomaton = this;
 
     function addControlButton(_buttonHTML, _onclickFunction) {
       var newButton = document.createElement('button')
       newButton.innerHTML = _buttonHTML;
       newButton.onclick = _onclickFunction;
       newButton.className = "cellular-automaton-control-button";
-      _this.controlPanel.appendChild(newButton);
+      _cellularAutomaton.controlPanel.appendChild(newButton);
       return newButton;
     }
 
@@ -353,10 +383,10 @@ class CellularAutomaton {
     // Add control buttons
     // buttonText (string) : the innerText of the button
     // onClickFunction (function) : the onClick function of the button
-    this.controlPanel.playButton = addControlButton('Play', function() {_this.play()});
-    this.controlPanel.pauseButton = addControlButton('Pause', function() {_this.pause()});
-    this.controlPanel.randomiseGridButton = addControlButton('Randomise <u>G</u>rid', function() {_this.randomiseGrid()});
-    this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_this.convolutionMatrix.randomise();});
+    this.controlPanel.playButton = addControlButton('Play', function() {_cellularAutomaton.play()});
+    this.controlPanel.pauseButton = addControlButton('Pause', function() {_cellularAutomaton.pause()});
+    this.controlPanel.randomiseGridButton = addControlButton('Randomise <u>G</u>rid', function() {_cellularAutomaton.randomiseGrid()});
+    this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_cellularAutomaton.convolutionMatrix.randomise();});
     // Add parameter inputs
     var addNumberInput = function(_inputId, _labelHTML, _onchangeFunction, _step = 0.01) {
       var labelElement;
@@ -364,53 +394,57 @@ class CellularAutomaton {
       labelElement.htmlFor = _inputId;
       labelElement.innerHTML = _labelHTML;
       labelElement.className = "cellular-automaton-number-input-label";
-      _this.controlPanel.appendChild(labelElement);
+      _cellularAutomaton.controlPanel.appendChild(labelElement);
       var inputElement = document.createElement("input");
       inputElement.type = "number";
       inputElement.id = _inputId;
       inputElement.step = _step;
       inputElement.onchange = _onchangeFunction;
       inputElement.className = "cellular-automaton-number-input";
-      _this.controlPanel.appendChild(inputElement);
+      _cellularAutomaton.controlPanel.appendChild(inputElement);
       return inputElement;
     }
-    _this.controlPanel.coefficientPInput = addNumberInput("coefficient-p", "p =", function() {_this._coefficientP = this.value;}, 0.01);
-    _this.controlPanel.offsetKInput = addNumberInput("offset-k", "k =", function() {_this._offsetK = this.value;}, 0.01);
+    _cellularAutomaton.controlPanel.coefficientPInput = addNumberInput("coefficient-p", "p =", function() {_cellularAutomaton._coefficientP = this.value;}, 0.01);
+    _cellularAutomaton.controlPanel.offsetKInput = addNumberInput("offset-k", "k =", function() {_cellularAutomaton._offsetK = this.value;}, 0.01);
     // Add the iteration counter
     var iterationCounterParagraph = document.createElement("p");
     iterationCounterParagraph.innerText = "Iterations: ";
-    _this.iterationCounter = document.createElement("span");
-    _this.iterationCounter.id = "iteration-count";
-    iterationCounterParagraph.appendChild(_this.iterationCounter);
-    _this.controlPanel.appendChild(iterationCounterParagraph);
+    _cellularAutomaton.iterationCounter = document.createElement("span");
+    _cellularAutomaton.iterationCounter.id = "iteration-count";
+    iterationCounterParagraph.appendChild(_cellularAutomaton.iterationCounter);
+    _cellularAutomaton.controlPanel.appendChild(iterationCounterParagraph);
     // colour controls
-    _this.controlPanel.hueCentreInput = addNumberInput("hue-centre", "<u>H</u>ue", function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _this._hueCentre = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1);
-    _this.controlPanel.hueSpreadInput = addNumberInput("hue-spread", "<u>S</u>pread", function() {_this._hueSpread = this.value;}, 1);
+    _cellularAutomaton.controlPanel.hueAtZeroInput = addNumberInput("hue-at-zero", "<u>H</u>ue at 0", function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _cellularAutomaton.color._hueAtZero = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1);
+    _cellularAutomaton.controlPanel.hueSpreadInput = addNumberInput("hue-spread", "<u>S</u>pread", function() {_cellularAutomaton.color._hueSpread = parseFloat(this.value);}, 1);
+    _cellularAutomaton.controlPanel.saturationAtZeroInput = addNumberInput("saturation-at-zero", "Saturation at 0", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtZero = parseFloat(this.value);});
+    _cellularAutomaton.controlPanel.saturationAtPlusOrMinusOneInput = addNumberInput("saturation-at-+-1", "Saturation at +/-1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtPlusOrMinusOne = parseFloat(this.value);});
+    _cellularAutomaton.controlPanel.lightnessAtZeroInput = addNumberInput("lightness-at-zero", "Lightness at 0", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtZero = parseFloat(this.value);});
+    _cellularAutomaton.controlPanel.lightnessAtPlusOrMinusOneInput = addNumberInput("lightness-at-+-1", "Lightness at +/-1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtPlusOrMinusOne = parseFloat(this.value);});
 
     // set up keyboard shortcuts
     window.onkeydown = function(e) {
       switch(e.key) {
         case " ": case "Spacebar":
-          if (_this.isPlaying) {
-            _this.pause();
+          if (_cellularAutomaton.isPlaying) {
+            _cellularAutomaton.pause();
           } else {
-            _this.play();
+            _cellularAutomaton.play();
           }
         break;
-        case "m": case "M": _this.convolutionMatrix.randomise(); break;
-        case "g": case "G": _this.randomiseGrid(); break;
-        case "p": case "P": _this.controlPanel.coefficientPInput.focus(); break;
-        case "i": case "I": _this.coefficientP *= -1; break;
-        case "k": case "K": _this.controlPanel.offsetKInput.focus(); break;
-        case "h": case "H": _this.controlPanel.hueCentreInput.focus(); break;
-        case "s": case "S": _this.controlPanel.hueSpreadInput.focus(); break;
+        case "m": case "M": _cellularAutomaton.convolutionMatrix.randomise(); break;
+        case "g": case "G": _cellularAutomaton.randomiseGrid(); break;
+        case "p": case "P": _cellularAutomaton.controlPanel.coefficientPInput.focus(); break;
+        case "i": case "I": _cellularAutomaton.coefficientP *= -1; break;
+        case "k": case "K": _cellularAutomaton.controlPanel.offsetKInput.focus(); break;
+        case "h": case "H": _cellularAutomaton.controlPanel.hueAtZeroInput.focus(); break;
+        case "s": case "S": _cellularAutomaton.controlPanel.hueSpreadInput.focus(); break;
         case "c": case "C": 
-          if(_this.controlPanel.style.visibility == 'hidden') {
-            _this.controlPanel.style.visibility = 'visible';
+          if(_cellularAutomaton.controlPanel.style.visibility == 'hidden') {
+            _cellularAutomaton.controlPanel.style.visibility = 'visible';
             document.body.style.cursor = 'inherit';
           }
           else {
-            _this.controlPanel.style.visibility = 'hidden';
+            _cellularAutomaton.controlPanel.style.visibility = 'hidden';
             document.body.style.cursor = 'none';
           }
         break;
@@ -447,6 +481,14 @@ class CellularAutomaton {
     // 
     this.normalisedP = this.coefficientP * this.convolutionMatrix.getSum();
 
+    // helper values for calculating colours
+    var H_at0 = this.color._hueAtZero;
+    var H_Sprd = this.color._hueSpread;
+    var S_0 = this.color._saturationAtZero;
+    var S_diff = this.color._saturationAtPlusOrMinusOne - S_0;
+    var L_0 = this.color._lightnessAtZero;
+    var L_diff = this.color._lightnessAtPlusOrMinusOne - L_0;
+
     // calculate the next step's grid
     var imageDataPointer = 0;
     for(var gridY = 0; gridY < this.gridSizeY; gridY++) {
@@ -464,7 +506,7 @@ class CellularAutomaton {
         // store the value in the corresponding cell in the next step
         this.currentWorkingStep.cell[gridX][gridY] = _value;
         // set the corresponding pixel in the image data array
-        var rgbValues = HSLToRGB( this._hueCentre + (_value*this._hueSpread), 1 - Math.abs(_value)*this.saturationSpread, (_value*this.lightnessSpread) + 0.5);
+        var rgbValues = HSLToRGB(H_at0 + (_value*H_Sprd), Math.abs(_value)*S_diff + S_0, Math.abs(_value)*L_diff + L_0);
         this.currentWorkingStep.imageData.data[imageDataPointer] = rgbValues.r; //red
         imageDataPointer++;
         this.currentWorkingStep.imageData.data[imageDataPointer] = rgbValues.g; //green
@@ -492,8 +534,8 @@ class CellularAutomaton {
       this.controlPanel.playButton.classList.add('active');
       this.controlPanel.pauseButton.classList.remove('active');
       // start the loop at the next animation frame
-      var _this = this;
-      this.stepTimer = window.setInterval(function(){_this.advanceStep()}, _this.minimumStepDuration);
+      var _cellularAutomaton = this;
+      this.stepTimer = window.setInterval(function(){_cellularAutomaton.advanceStep()}, _cellularAutomaton.minimumStepDuration);
     }
   }
 
@@ -504,8 +546,8 @@ class CellularAutomaton {
       this.isPlaying = false;
       this.controlPanel.pauseButton.classList.add('active');
       this.controlPanel.playButton.classList.remove('active');
-      var _this = this;
-      window.clearInterval(_this.stepTimer);
+      var _cellularAutomaton = this;
+      window.clearInterval(_cellularAutomaton.stepTimer);
     }
   }
 
