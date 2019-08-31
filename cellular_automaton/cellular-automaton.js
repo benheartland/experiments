@@ -202,40 +202,56 @@ class CellularAutomaton {
       _hueAtZero: 0,
       _hueSpread: 0,
       _saturationAtZero: 0,
-      _saturationAtPlusOrMinusOne: 0,
+      _saturationAtPlusOne: 0,
+      _saturationAtMinusOne: 0,
       _lightnessAtZero: 0,
-      _lightnessAtPlusOrMinusOne: 0,
+      _lightnessAtPlusOne: 0,
+      _lightnessAtMinusOne: 0,
 
       // getters and setters
+
+      // Hue
       get hueAtZero() {return _hueAtZero;},
-      set hueAtZero(h) {
-        _cellularAutomaton.controlPanel.hueAtZeroInput.value = h;
-        this._hueAtZero = h;
+      set hueAtZero(hue) {
+        _cellularAutomaton.controlPanel.hueAtZeroInput.value = hue;
+        this._hueAtZero = hue;
       },
       get hueSpread() {return this._hueSpread;},
-      set hueSpread(s) {
-        _cellularAutomaton.controlPanel.hueSpreadInput.value = s;
-        this._hueSpread = s;
+      set hueSpread(spread) {
+        _cellularAutomaton.controlPanel.hueSpreadInput.value = spread;
+        this._hueSpread = spread;
+      },
+      // Saturation
+      get saturationAtPlusOne() {return this._saturationAtPlusOne;},
+      set saturationAtPlusOne(s) {
+        this._saturationAtPlusOne = s;
+        _cellularAutomaton.controlPanel.saturationAtPlusOneInput.value = s;
       },
       get saturationAtZero() {return _saturationAtZero;},
-      set saturationAtZero(h) {
-        _cellularAutomaton.controlPanel.saturationAtZeroInput.value = h;
-        this._saturationAtZero = h;
+      set saturationAtZero(s) {
+        this._saturationAtZero = s;
+        _cellularAutomaton.controlPanel.saturationAtZeroInput.value = s;
       },
-      get saturationAtPlusOrMinusOne() {return this._hueSpread;},
-      set saturationAtPlusOrMinusOne(s) {
-        _cellularAutomaton.controlPanel.saturationAtPlusOrMinusOneInput.value = s;
-        this._saturationAtPlusOrMinusOne = s;
+      get saturationAtMinusOne() {return this._saturationAtMinusOne;},
+      set saturationAtMinusOne(s) {
+        this._saturationAtMinusOne = s;
+        _cellularAutomaton.controlPanel.saturationAtMinusOneInput.value = s;
+      },
+      // Lightness
+      get lightnessAtPlusOne() {return this._lightnessAtPlussOne;},
+      set lightnessAtPlusOne(s) {
+        this._lightnessAtPlusOne = s;
+        _cellularAutomaton.controlPanel.lightnessAtPlusOneInput.value = s;
       },
       get lightnessAtZero() {return _lightnessAtZero;},
       set lightnessAtZero(h) {
-        _cellularAutomaton.controlPanel.lightnessAtZeroInput.value = h;
         this._lightnessAtZero = h;
+        _cellularAutomaton.controlPanel.lightnessAtZeroInput.value = h;
       },
-      get lightnessAtPlusOrMinusOne() {return this._hueSpread;},
-      set lightnessAtPlusOrMinusOne(s) {
-        _cellularAutomaton.controlPanel.lightnessAtPlusOrMinusOneInput.value = s;
-        this._lightnessAtPlusOrMinusOne = s;
+      get lightnessAtMinusOne() {return this._lightnessAtMinusOne;},
+      set lightnessAtMinusOne(s) {
+        this._lightnessAtMinusOne = s;
+        _cellularAutomaton.controlPanel.lightnessAtMinusOneInput.value = s;
       }
 
     }
@@ -262,10 +278,12 @@ class CellularAutomaton {
     // initial values for colour variables
     this.color.hueAtZero = 0;
     this.color.hueSpread = 60; // [0,)
+    this.color.saturationAtPlusOne = 1 // [0, 1]
     this.color.saturationAtZero = 0.5 // [0, 1]
-    this.color.saturationAtPlusOrMinusOne = 1 // [0, 1]
+    this.color.saturationAtMinusOne = 1 // [0, 1]
+    this.color.lightnessAtPlusOne = 0.5 // [0, 1]
     this.color.lightnessAtZero = 0.2 // [0, 1]
-    this.color.lightnessAtPlusOrMinusOne = 0.5 // [0, 1]
+    this.color.lightnessAtMinusOne = 0.5 // [0, 1]
 
     // ****************************************************************************************************
     // ****************************************************************************************************
@@ -416,10 +434,12 @@ class CellularAutomaton {
     // colour controls
     _cellularAutomaton.controlPanel.hueAtZeroInput = addNumberInput("hue-at-zero", "<u>H</u>ue at 0", function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _cellularAutomaton.color._hueAtZero = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1);
     _cellularAutomaton.controlPanel.hueSpreadInput = addNumberInput("hue-spread", "<u>S</u>pread", function() {_cellularAutomaton.color._hueSpread = parseFloat(this.value);}, 1);
+    _cellularAutomaton.controlPanel.saturationAtPlusOneInput = addNumberInput("saturation-at-plus-1", "Saturation at +1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtPlusOne = parseFloat(this.value);});
     _cellularAutomaton.controlPanel.saturationAtZeroInput = addNumberInput("saturation-at-zero", "Saturation at 0", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtZero = parseFloat(this.value);});
-    _cellularAutomaton.controlPanel.saturationAtPlusOrMinusOneInput = addNumberInput("saturation-at-+-1", "Saturation at +/-1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtPlusOrMinusOne = parseFloat(this.value);});
+    _cellularAutomaton.controlPanel.saturationAtMinusOneInput = addNumberInput("saturation-at-minus-1", "Saturation at -1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtMinusOne = parseFloat(this.value);});
+    _cellularAutomaton.controlPanel.lightnessAtPlusOneInput = addNumberInput("lightness-at-plus-1", "Lightness at +1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtPlusOne = parseFloat(this.value);});
     _cellularAutomaton.controlPanel.lightnessAtZeroInput = addNumberInput("lightness-at-zero", "Lightness at 0", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtZero = parseFloat(this.value);});
-    _cellularAutomaton.controlPanel.lightnessAtPlusOrMinusOneInput = addNumberInput("lightness-at-+-1", "Lightness at +/-1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtPlusOrMinusOne = parseFloat(this.value);});
+    _cellularAutomaton.controlPanel.lightnessAtMinusOneInput = addNumberInput("lightness-at-minus-1", "Lightness at -1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtMinusOne = parseFloat(this.value);});
 
     // set up keyboard shortcuts
     window.onkeydown = function(e) {
@@ -484,10 +504,14 @@ class CellularAutomaton {
     // helper values for calculating colours
     var H_at0 = this.color._hueAtZero;
     var H_Sprd = this.color._hueSpread;
-    var S_0 = this.color._saturationAtZero;
-    var S_diff = this.color._saturationAtPlusOrMinusOne - S_0;
-    var L_0 = this.color._lightnessAtZero;
-    var L_diff = this.color._lightnessAtPlusOrMinusOne - L_0;
+    // coefficients for the quadrilateral equation to govern saturation
+    var s_k0 = this.color._saturationAtZero;
+    var s_k1 = (this.color._saturationAtPlusOne - this.color._saturationAtMinusOne)/2;
+    var s_k2 = this.color._saturationAtPlusOne - s_k0 - s_k1;
+    // coefficients for the quadrilateral equation to govern lightness
+    var l_k0 = this.color._lightnessAtZero;
+    var l_k1 = (this.color._lightnessAtPlusOne - this.color._lightnessAtMinusOne)/2;
+    var l_k2 = this.color._lightnessAtPlusOne - l_k0 - l_k1;
 
     // calculate the next step's grid
     var imageDataPointer = 0;
@@ -506,7 +530,7 @@ class CellularAutomaton {
         // store the value in the corresponding cell in the next step
         this.currentWorkingStep.cell[gridX][gridY] = _value;
         // set the corresponding pixel in the image data array
-        var rgbValues = HSLToRGB(H_at0 + (_value*H_Sprd), Math.abs(_value)*S_diff + S_0, Math.abs(_value)*L_diff + L_0);
+        var rgbValues = HSLToRGB(H_at0 + (_value*H_Sprd), s_k2*_value*_value + s_k1*_value + s_k0,  l_k2*_value*_value + l_k1*_value + l_k0);
         this.currentWorkingStep.imageData.data[imageDataPointer] = rgbValues.r; //red
         imageDataPointer++;
         this.currentWorkingStep.imageData.data[imageDataPointer] = rgbValues.g; //green
