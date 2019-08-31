@@ -406,41 +406,75 @@ class CellularAutomaton {
     this.controlPanel.randomiseGridButton = addControlButton('Randomise <u>G</u>rid', function() {_cellularAutomaton.randomiseGrid()});
     this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_cellularAutomaton.convolutionMatrix.randomise();});
     // Add parameter inputs
-    var addNumberInput = function(_inputId, _labelHTML, _onchangeFunction, _step = 0.01) {
-      var labelElement;
-      labelElement = document.createElement("label");
-      labelElement.htmlFor = _inputId;
-      labelElement.innerHTML = _labelHTML;
-      labelElement.className = "cellular-automaton-number-input-label";
-      _cellularAutomaton.controlPanel.appendChild(labelElement);
+    function addNumberInput(_inputId, _labelHTML, _onchangeFunction, _step = 0.01, _parentNode = _cellularAutomaton.controlPanel) {
+      // if label innerHTML is supplied, add the label
+      if (_labelHTML) {
+        var labelElement;
+        labelElement = document.createElement("label");
+        labelElement.htmlFor = _inputId;
+        labelElement.innerHTML = _labelHTML;
+        labelElement.className = "cellular-automaton-number-input-label";
+        _parentNode.appendChild(labelElement);
+      }
       var inputElement = document.createElement("input");
       inputElement.type = "number";
       inputElement.id = _inputId;
       inputElement.step = _step;
       inputElement.onchange = _onchangeFunction;
       inputElement.className = "cellular-automaton-number-input";
-      _cellularAutomaton.controlPanel.appendChild(inputElement);
+      _parentNode.appendChild(inputElement);
       return inputElement;
     }
-    _cellularAutomaton.controlPanel.coefficientPInput = addNumberInput("coefficient-p", "p =", function() {_cellularAutomaton._coefficientP = this.value;}, 0.01);
-    _cellularAutomaton.controlPanel.offsetKInput = addNumberInput("offset-k", "k =", function() {_cellularAutomaton._offsetK = this.value;}, 0.01);
+    this.controlPanel.coefficientPInput = addNumberInput("coefficient-p", "p =", function() {_cellularAutomaton._coefficientP = this.value;}, 0.01);
+    this.controlPanel.offsetKInput = addNumberInput("offset-k", "k =", function() {_cellularAutomaton._offsetK = this.value;}, 0.01);
     // Add the iteration counter
     var iterationCounterParagraph = document.createElement("p");
     iterationCounterParagraph.innerText = "Iterations: ";
-    _cellularAutomaton.iterationCounter = document.createElement("span");
-    _cellularAutomaton.iterationCounter.id = "iteration-count";
+    this.iterationCounter = document.createElement("span");
+    this.iterationCounter.id = "iteration-count";
     iterationCounterParagraph.appendChild(_cellularAutomaton.iterationCounter);
-    _cellularAutomaton.controlPanel.appendChild(iterationCounterParagraph);
-    // colour controls
-    _cellularAutomaton.controlPanel.hueAtZeroInput = addNumberInput("hue-at-zero", "<u>H</u>ue at 0", function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _cellularAutomaton.color._hueAtZero = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1);
-    _cellularAutomaton.controlPanel.hueSpreadInput = addNumberInput("hue-spread", "<u>S</u>pread", function() {_cellularAutomaton.color._hueSpread = parseFloat(this.value);}, 1);
-    _cellularAutomaton.controlPanel.saturationAtPlusOneInput = addNumberInput("saturation-at-plus-1", "Saturation at +1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtPlusOne = parseFloat(this.value);});
-    _cellularAutomaton.controlPanel.saturationAtZeroInput = addNumberInput("saturation-at-zero", "Saturation at 0", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtZero = parseFloat(this.value);});
-    _cellularAutomaton.controlPanel.saturationAtMinusOneInput = addNumberInput("saturation-at-minus-1", "Saturation at -1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtMinusOne = parseFloat(this.value);});
-    _cellularAutomaton.controlPanel.lightnessAtPlusOneInput = addNumberInput("lightness-at-plus-1", "Lightness at +1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtPlusOne = parseFloat(this.value);});
-    _cellularAutomaton.controlPanel.lightnessAtZeroInput = addNumberInput("lightness-at-zero", "Lightness at 0", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtZero = parseFloat(this.value);});
-    _cellularAutomaton.controlPanel.lightnessAtMinusOneInput = addNumberInput("lightness-at-minus-1", "Lightness at -1", function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtMinusOne = parseFloat(this.value);});
+    this.controlPanel.appendChild(iterationCounterParagraph);
 
+    // The colour controls go in a table
+    var colorControlTable = document.createElement('table');
+    colorControlTable.id = 'color-control-table';
+    // header
+    colorControlTable.header = document.createElement('thead');
+    colorControlTable.header.row = document.createElement('tr')
+    colorControlTable.header.row.appendChild(document.createElement('th'));
+    colorControlTable.header.row.appendChild(document.createElement('th')).innerText = 'Hue';
+    colorControlTable.header.row.appendChild(document.createElement('th')).innerText = 'Saturation';
+    colorControlTable.header.row.appendChild(document.createElement('th')).innerText = 'Lightness';
+    colorControlTable.header.appendChild(colorControlTable.header.row);
+    colorControlTable.appendChild(colorControlTable.header);
+    //body
+    colorControlTable.body = document.createElement('tbody');
+    colorControlTable.body.row = new Array(3);
+
+    // "At +1" controls
+    colorControlTable.body.row[0] = document.createElement('tr');
+    colorControlTable.body.row[0].appendChild(document.createElement('th')).innerText = 'at +1';
+    colorControlTable.body.row[0].appendChild(document.createElement('td'));
+    this.controlPanel.saturationAtPlusOneInput = addNumberInput("saturation-at-plus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtPlusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[0].appendChild(document.createElement('td')) );
+    this.controlPanel.lightnessAtPlusOneInput = addNumberInput("lightness-at-plus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtPlusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[0].appendChild(document.createElement('td')) );
+    colorControlTable.body.appendChild(colorControlTable.body.row[0]);
+    // "At 0" controls
+    colorControlTable.body.row[1] = document.createElement('tr');
+    colorControlTable.body.row[1].appendChild(document.createElement('th')).innerText = 'at \xa00';
+    this.controlPanel.hueAtZeroInput = addNumberInput("hue-at-zero", null, function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _cellularAutomaton.color._hueAtZero = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
+    this.controlPanel.saturationAtZeroInput = addNumberInput("saturation-at-zero", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtZero = parseFloat(this.value);}, 0.01, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
+    this.controlPanel.lightnessAtZeroInput = addNumberInput("lightness-at-zero", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtZero = parseFloat(this.value);}, 0.01, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
+    colorControlTable.body.appendChild(colorControlTable.body.row[1]);
+    // "At -1" controls
+    colorControlTable.body.row[2] = document.createElement('tr');
+    colorControlTable.body.row[2].appendChild(document.createElement('th')).innerText = 'at -1';
+    _cellularAutomaton.controlPanel.hueSpreadInput = addNumberInput("hue-spread", null, function() {_cellularAutomaton.color._hueSpread = parseFloat(this.value);}, 1, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    _cellularAutomaton.controlPanel.saturationAtMinusOneInput = addNumberInput("saturation-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    _cellularAutomaton.controlPanel.lightnessAtMinusOneInput = addNumberInput("lightness-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    colorControlTable.body.appendChild(colorControlTable.body.row[2]);
+    // Add the table body to the table, and the table to the control panel div
+    colorControlTable.appendChild(colorControlTable.body);
+    this.controlPanel.appendChild(colorControlTable);
     // set up keyboard shortcuts
     window.onkeydown = function(e) {
       switch(e.key) {
@@ -457,7 +491,8 @@ class CellularAutomaton {
         case "i": case "I": _cellularAutomaton.coefficientP *= -1; break;
         case "k": case "K": _cellularAutomaton.controlPanel.offsetKInput.focus(); break;
         case "h": case "H": _cellularAutomaton.controlPanel.hueAtZeroInput.focus(); break;
-        case "s": case "S": _cellularAutomaton.controlPanel.hueSpreadInput.focus(); break;
+        case "s": case "S": _cellularAutomaton.controlPanel.saturationAtZeroInput.focus(); break;
+        case "l": case "L": _cellularAutomaton.controlPanel.lightnessAtZeroInput.focus(); break;
         case "c": case "C": 
           if(_cellularAutomaton.controlPanel.style.visibility == 'hidden') {
             _cellularAutomaton.controlPanel.style.visibility = 'visible';
