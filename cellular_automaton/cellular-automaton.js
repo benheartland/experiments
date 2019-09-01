@@ -65,7 +65,8 @@ class ConvolutionMatrix {
       for(var mX = 0; mX < this.sizeX; mX++) {
         this.matrixElement[mX][mY] = 2*Math.random() - 1;
       }
-    }      
+    }
+    this.displayTable.refresh();
   }
 
   // returns the sum of all the values in the matrix
@@ -177,9 +178,6 @@ class CellularAutomaton {
     // used to pass this object into child objects.
     var _cellularAutomaton = this;
 
-    // create the control panel (not added to the document at this point).
-    this.createControlPanel();
-
     // transfer input variables to object properties
     // ID for the cellularAutomaton object
     this.id = _id
@@ -263,10 +261,15 @@ class CellularAutomaton {
 
     // set up the convolution matrix
     this.convolutionMatrix = new ConvolutionMatrix(_convolutionMatrixRadiusX, _convolutionMatrixRadiusY);
-    this.convolutionMatrix.randomise();
+
+    // create the control panel (not added to the document at this point).
+    this.createControlPanel();
 
     // Set the iteration count to zero
     this.iterationCount = 0;
+
+    // randomise the convolution matrix
+    this.convolutionMatrix.randomise();
 
     // ****************************************************************************************************
     // *** PARAMETERS *************************************************************************************
@@ -437,7 +440,8 @@ class CellularAutomaton {
 
     // The colour controls go in a table
     var colorControlTable = document.createElement('table');
-    colorControlTable.id = 'color-control-table';
+    colorControlTable.id = this.id + '-color-control-table';
+    colorControlTable.className = 'color-control-table';
     // header
     colorControlTable.header = document.createElement('thead');
     colorControlTable.header.row = document.createElement('tr')
@@ -450,7 +454,6 @@ class CellularAutomaton {
     //body
     colorControlTable.body = document.createElement('tbody');
     colorControlTable.body.row = new Array(3);
-
     // "At +1" controls
     colorControlTable.body.row[0] = document.createElement('tr');
     colorControlTable.body.row[0].appendChild(document.createElement('th')).innerText = 'at +1';
@@ -468,43 +471,82 @@ class CellularAutomaton {
     // "At -1" controls
     colorControlTable.body.row[2] = document.createElement('tr');
     colorControlTable.body.row[2].appendChild(document.createElement('th')).innerText = 'at -1';
-    _cellularAutomaton.controlPanel.hueSpreadInput = addNumberInput("hue-spread", null, function() {_cellularAutomaton.color._hueSpread = parseFloat(this.value);}, 1, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
-    _cellularAutomaton.controlPanel.saturationAtMinusOneInput = addNumberInput("saturation-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
-    _cellularAutomaton.controlPanel.lightnessAtMinusOneInput = addNumberInput("lightness-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    this.controlPanel.hueSpreadInput = addNumberInput("hue-spread", null, function() {_cellularAutomaton.color._hueSpread = parseFloat(this.value);}, 1, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    this.controlPanel.saturationAtMinusOneInput = addNumberInput("saturation-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    this.controlPanel.lightnessAtMinusOneInput = addNumberInput("lightness-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
     colorControlTable.body.appendChild(colorControlTable.body.row[2]);
     // Add the table body to the table, and the table to the control panel div
     colorControlTable.appendChild(colorControlTable.body);
     this.controlPanel.appendChild(colorControlTable);
     // set up keyboard shortcuts
-    window.onkeydown = function(e) {
-      switch(e.key) {
-        case " ": case "Spacebar":
-          if (_cellularAutomaton.isPlaying) {
-            _cellularAutomaton.pause();
-          } else {
-            _cellularAutomaton.play();
-          }
-        break;
-        case "m": case "M": _cellularAutomaton.convolutionMatrix.randomise(); break;
-        case "g": case "G": _cellularAutomaton.randomiseGrid(); break;
-        case "p": case "P": _cellularAutomaton.controlPanel.coefficientPInput.focus(); break;
-        case "i": case "I": _cellularAutomaton.coefficientP *= -1; break;
-        case "k": case "K": _cellularAutomaton.controlPanel.offsetKInput.focus(); break;
-        case "h": case "H": _cellularAutomaton.controlPanel.hueAtZeroInput.focus(); break;
-        case "s": case "S": _cellularAutomaton.controlPanel.saturationAtZeroInput.focus(); break;
-        case "l": case "L": _cellularAutomaton.controlPanel.lightnessAtZeroInput.focus(); break;
-        case "c": case "C": 
-          if(_cellularAutomaton.controlPanel.style.visibility == 'hidden') {
-            _cellularAutomaton.controlPanel.style.visibility = 'visible';
-            document.body.style.cursor = 'inherit';
-          }
-          else {
-            _cellularAutomaton.controlPanel.style.visibility = 'hidden';
-            document.body.style.cursor = 'none';
-          }
-        break;
+
+    // Convolution Matrix Display table
+    this.controlPanel.convolutionMatrixDisplayTable = document.createElement('table');
+    this.controlPanel.convolutionMatrixDisplayTable.id = this.id + '-convolution-matrix-display-table';
+    this.controlPanel.convolutionMatrixDisplayTable.className = 'convolution-matrix-display-table';
+    // body
+    this.controlPanel.convolutionMatrixDisplayTable.body = document.createElement('tbody');
+    this.controlPanel.convolutionMatrixDisplayTable.body.row = new Array(this.convolutionMatrix.sizeY);
+    for(var y = 0; y < this.convolutionMatrix.sizeY; y++) {
+      this.controlPanel.convolutionMatrixDisplayTable.body.row[y] = document.createElement('tr');
+      this.controlPanel.convolutionMatrixDisplayTable.body.row[y].cell = new Array(this.convolutionMatrix.sizeX);
+      for(var x = 0; x < this.convolutionMatrix.sizeX; x++) {
+        this.controlPanel.convolutionMatrixDisplayTable.body.row[y].cell[x] = document.createElement('td');
+        this.controlPanel.convolutionMatrixDisplayTable.body.row[y].appendChild(this.controlPanel.convolutionMatrixDisplayTable.body.row[y].cell[x]);
+      }
+      this.controlPanel.convolutionMatrixDisplayTable.body.appendChild(this.controlPanel.convolutionMatrixDisplayTable.body.row[y]);
+    }
+    this.controlPanel.convolutionMatrixDisplayTable.appendChild(this.controlPanel.convolutionMatrixDisplayTable.body);
+    this.controlPanel.appendChild(this.controlPanel.convolutionMatrixDisplayTable);
+
+    // method to refresh the values in the display table
+    this.controlPanel.convolutionMatrixDisplayTable.refresh = function() {
+      for(var y = 0; y < _cellularAutomaton.convolutionMatrix.sizeY; y++) {
+        for(var x = 0; x < _cellularAutomaton.convolutionMatrix.sizeX; x++) {
+          // if the value is not negative, add a non-breaking space to left-pad the cell content 
+          var paddingSpace = _cellularAutomaton.convolutionMatrix.matrixElement[x][y] < 0 ? '' : '\xa0';
+          this.body.row[y].cell[x].innerText = paddingSpace + _cellularAutomaton.convolutionMatrix.matrixElement[x][y].toString();
+        }
       }
     }
+
+    // an alternate accessor for the display table
+    this.convolutionMatrix.displayTable = this.controlPanel.convolutionMatrixDisplayTable;
+
+    window.onkeydown = function(e) {
+      // ignore keyboard events when the ctrl key is pressed
+      if (!e.ctrlKey) {
+        switch(e.key) {
+          case " ": case "Spacebar":
+            if (_cellularAutomaton.isPlaying) {
+              _cellularAutomaton.pause();
+            } else {
+              _cellularAutomaton.play();
+            }
+          break;
+          case "m": case "M": _cellularAutomaton.convolutionMatrix.randomise(); break;
+          case "g": case "G": _cellularAutomaton.randomiseGrid(); break;
+          case "p": case "P": _cellularAutomaton.controlPanel.coefficientPInput.focus(); break;
+          case "i": case "I": _cellularAutomaton.coefficientP *= -1; break;
+          case "k": case "K": _cellularAutomaton.controlPanel.offsetKInput.focus(); break;
+          case "h": case "H": _cellularAutomaton.controlPanel.hueAtZeroInput.focus(); break;
+          case "s": case "S": _cellularAutomaton.controlPanel.saturationAtZeroInput.focus(); break;
+          case "l": case "L": _cellularAutomaton.controlPanel.lightnessAtZeroInput.focus(); break;
+          // Hide the control panel
+          case "c": case "C": 
+            if(_cellularAutomaton.controlPanel.style.visibility == 'hidden') {
+              _cellularAutomaton.controlPanel.style.visibility = 'visible';
+              document.body.style.cursor = 'inherit';
+            }
+            else {
+              _cellularAutomaton.controlPanel.style.visibility = 'hidden';
+              document.body.style.cursor = 'none';
+            }
+          break;
+        }
+      }
+    }
+
   }
 
   // appends the display to the given element.

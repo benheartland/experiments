@@ -14,6 +14,10 @@ input {
   width: 4em;
 }
 
+table {
+  border-collapse: collapse;
+}
+
 .cellular-automaton {
   margin: 1em auto;
 }
@@ -25,6 +29,7 @@ input {
 
 .cellular-automaton-control-panel {
   border: 1px solid #000;
+   border-radius: 0.5em;
   background-color: rgba(0, 0, 0, 0.6);
   width: max-content;
   padding: 0.5em;
@@ -39,4 +44,33 @@ input {
 }
 .cellular-automaton-control-panel button.active {
   border-color: yellow;
+}
+
+.cellular-automaton-control-panel table {
+  border: 1px solid black;
+  border-radius: 0.5em;
+}
+
+.cellular-automaton-control-panel .color-control-table td, th {
+  text-align: center;
+  padding: 0.5em;
+}
+
+.cellular-automaton-control-panel .color-control-table td {
+  min-width: 5em;
+}
+
+.cellular-automaton-control-panel .convolution-matrix-display-table {
+  font-size: 0.6rem;
+  table-layout: fixed;
+  width: min-content;
+}
+
+.cellular-automaton-control-panel .convolution-matrix-display-table td {
+  overflow: hidden;
+  white-space: nowrap;
+  width: 2.5em;
+  height: 2.5em; 
+  padding: 0.5em;
+  border: 1px solid black;
 }
