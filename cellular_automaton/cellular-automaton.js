@@ -59,14 +59,24 @@ class ConvolutionMatrix {
     }
   }
   
+  // set the value of a particular matrix element and update the display for that element only
+  setMatrixElement(x, y, value) {
+    // TODO add some input validation?
+    this.matrixElement[x][y] = value;
+    this.displayTable.body.row[y].cell[x].innerText = value;
+    // set the background colour of the cell - green +ve, red -ve
+    var bgLightness = Math.round(Math.abs(value*255)).toString();
+    var bgColor = value < 0 ? `rgb(${bgLightness}, 0, 0)` : `rgb(0, ${bgLightness}, 0)`;
+    this.displayTable.body.row[y].cell[x].style.backgroundColor = bgColor;
+  }
+
   // method to randomise the matrix values to values in the range [-1, 1)
   randomise() {
     for(var mY = 0; mY < this.sizeY; mY++) {
       for(var mX = 0; mX < this.sizeX; mX++) {
-        this.matrixElement[mX][mY] = 2*Math.random() - 1;
+        this.setMatrixElement(mX, mY, 2*Math.random() - 1);
       }
     }
-    this.displayTable.refresh();
   }
 
   // returns the sum of all the values in the matrix
@@ -276,16 +286,16 @@ class CellularAutomaton {
     // ****************************************************************************************************
 
     // initial values for post-convolution function parameters
-    this.coefficientP = 1;
+    this.coefficientP = 0.2;
     this.offsetK = 0.0;
     // initial values for colour variables
     this.color.hueAtZero = 0;
-    this.color.hueSpread = 60; // [0,)
-    this.color.saturationAtPlusOne = 1 // [0, 1]
+    this.color.hueSpread = 120; // [0,)
+    this.color.saturationAtPlusOne = 1.0 // [0, 1]
     this.color.saturationAtZero = 0.5 // [0, 1]
-    this.color.saturationAtMinusOne = 1 // [0, 1]
+    this.color.saturationAtMinusOne = 1.0 // [0, 1]
     this.color.lightnessAtPlusOne = 0.5 // [0, 1]
-    this.color.lightnessAtZero = 0.2 // [0, 1]
+    this.color.lightnessAtZero = 0.0 // [0, 1]
     this.color.lightnessAtMinusOne = 0.5 // [0, 1]
 
     // ****************************************************************************************************
@@ -478,7 +488,6 @@ class CellularAutomaton {
     // Add the table body to the table, and the table to the control panel div
     colorControlTable.appendChild(colorControlTable.body);
     this.controlPanel.appendChild(colorControlTable);
-    // set up keyboard shortcuts
 
     // Convolution Matrix Display table
     this.controlPanel.convolutionMatrixDisplayTable = document.createElement('table');
@@ -510,9 +519,10 @@ class CellularAutomaton {
       }
     }
 
-    // an alternate accessor for the display table
+    // an alternate accessor for the display table (needed to access convolutionMatrixDisplayTable methods from within the convolutionMatrix object)
     this.convolutionMatrix.displayTable = this.controlPanel.convolutionMatrixDisplayTable;
 
+    // set up keyboard shortcuts
     window.onkeydown = function(e) {
       // ignore keyboard events when the ctrl key is pressed
       if (!e.ctrlKey) {
