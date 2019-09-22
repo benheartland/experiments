@@ -42,6 +42,49 @@ function HSLToRGB(h,s,l) {
   return {r, g, b};
 }
 
+// Class defining control panels (for both the main object and sub-panels for sub-objects)
+// N.B. Uses a 'function' declaration rather than a 'class' notation so that the new object 
+// can be the div element itself rather than a containing object.
+function ControlPanel(_id = null, _title = null) {
+
+  // 
+  var controlPanel = document.createElement('div');
+  if (_id) controlPanel.id = _id;
+  if (_title) controlPanel.title = _title;
+
+  controlPanel.addButton = function(_buttonHTML, _onclickFunction) {
+    var newButton = document.createElement('button')
+    newButton.innerHTML = _buttonHTML;
+    newButton.onclick = _onclickFunction;
+    newButton.className = "cellular-automaton-control-button";
+    this.appendChild(newButton);
+    return newButton;
+  }
+
+  // Add parameter inputs
+  controlPanel.addNumberInput = function(_inputId, _labelHTML, _onchangeFunction, _step = 0.01, _parentElement = this) {
+    // if label innerHTML is supplied, add the label
+    if (_labelHTML) {
+      var labelElement;
+      labelElement = document.createElement("label");
+      labelElement.htmlFor = _inputId;
+      labelElement.innerHTML = _labelHTML;
+      labelElement.className = "cellular-automaton-number-input-label";
+      _parentElement.appendChild(labelElement);
+    }
+    var inputElement = document.createElement("input");
+    inputElement.type = "number";
+    inputElement.id = _inputId;
+    inputElement.step = _step;
+    inputElement.onchange = _onchangeFunction;
+    inputElement.className = "cellular-automaton-number-input";
+    _parentElement.appendChild(inputElement);
+    return inputElement;
+  }
+
+  return controlPanel;
+}
+
 // class defining convolution matrices
 class ConvolutionMatrix {
   // Takes the "radius" of the matrix in each dimension as parameter, i.e. the number of
@@ -57,20 +100,56 @@ class ConvolutionMatrix {
     for(var x = 0; x < this.sizeX; x++) {
       this.matrixElement[x] = new Array(this.sizeY);
     }
-  }
+
+    // Convolution Matrix control sub-panel
+    // --------------------------------
+    // Create the control sub-panel
+    this.controlPanel = new ControlPanel('convolutionMatrix', 'Convolution Matrix control panel');
+    // Create the matrix display table
+    this.controlPanel.displayTable = document.createElement('table');
+    this.controlPanel.displayTable.className = 'convolution-matrix-display-table';
+    // table body
+    this.controlPanel.displayTable.body = document.createElement('tbody');
+    this.controlPanel.displayTable.body.row = new Array(this.sizeY);
+    for(var y = 0; y < this.sizeY; y++) {
+      this.controlPanel.displayTable.body.row[y] = document.createElement('tr');
+      this.controlPanel.displayTable.body.row[y].cell = new Array(this.sizeX);
+      for(var x = 0; x < this.sizeX; x++) {
+        this.controlPanel.displayTable.body.row[y].cell[x] = document.createElement('td');
+        this.controlPanel.displayTable.body.row[y].appendChild(this.controlPanel.displayTable.body.row[y].cell[x]);
+      }
+      this.controlPanel.displayTable.body.appendChild(this.controlPanel.displayTable.body.row[y]);
+    }
+    // append the body to the table
+    this.controlPanel.displayTable.appendChild(this.controlPanel.displayTable.body);
+    // append the table to the sub-panel div
+    this.controlPanel.appendChild(this.controlPanel.displayTable);
+
+    // method to refresh the values in the display table
+    this.controlPanel.displayTable.refresh = function() {
+      for(var y = 0; y < this.sizeY; y++) {
+        for(var x = 0; x < this.sizeX; x++) {
+          // if the value is not negative, add a non-breaking space to left-pad the cell content 
+          var paddingSpace = this.matrixElement[x][y] < 0 ? '' : '\xa0';
+          this.body.row[y].cell[x].innerText = paddingSpace + this.matrixElement[x][y].toString();
+        }
+      }
+    }
+
+  } // end of ConvolutionMatrix constructor function
   
-  // set the value of a particular matrix element and update the display for that element only
+  // Method: sets the value of a particular matrix element and updates the display for that element only
   setMatrixElement(x, y, value) {
     // TODO add some input validation?
     this.matrixElement[x][y] = value;
-    this.displayTable.body.row[y].cell[x].innerText = value;
+    this.controlPanel.displayTable.body.row[y].cell[x].innerText = value;
     // set the background colour of the cell - green +ve, red -ve
     var bgLightness = Math.round(Math.abs(value*255)).toString();
     var bgColor = value < 0 ? `rgb(${bgLightness}, 0, 0)` : `rgb(0, ${bgLightness}, 0)`;
-    this.displayTable.body.row[y].cell[x].style.backgroundColor = bgColor;
+    this.controlPanel.displayTable.body.row[y].cell[x].style.backgroundColor = bgColor;
   }
 
-  // method to randomise the matrix values to values in the range [-1, 1)
+  // Method: randomises the matrix values to values in the range [-1, 1)
   randomise() {
     for(var mY = 0; mY < this.sizeY; mY++) {
       for(var mX = 0; mX < this.sizeX; mX++) {
@@ -79,7 +158,7 @@ class ConvolutionMatrix {
     }
   }
 
-  // returns the sum of all the values in the matrix
+  // Method: returns the sum of all the values in the matrix
   getSum() {
     var sum = 0;
     for(var mY = 0; mY < this.sizeY; mY++) {
@@ -90,13 +169,13 @@ class ConvolutionMatrix {
     return sum;
   }
 
-  // returns 1 or -1, depending on the sign of the matrix's sum.
+  // Method: returns 1 or -1, depending on the sign of the matrix's sum.
   // If the sum is zero, returns 1
   getSign() {
     return (this.getSum() >= 0) ? 1 : -1;
   }
 
-  // returns the sum of all the *absolute* values in the matrix
+  // Method: returns the sum of all the *absolute* values in the matrix
   getAbsSum() {
     var absSum = 0;
     for(var mY = 0; mY < this.sizeY; mY++) {
@@ -107,7 +186,7 @@ class ConvolutionMatrix {
     return absSum;
   }
 
-  // returns the sum of all the values in the matrix
+  // Method: returns the sum of all the values in the matrix
   getRms() {
     var sumOfSquares = 0;
     for(var mY = 0; mY < this.sizeY; mY++) {
@@ -118,9 +197,9 @@ class ConvolutionMatrix {
     return Math.sqrt(sumOfSquares / (this.sizeY * this.sizeY));
   }
 
-}
+} // End of ConvolutionMatrix class definition
 
-// class defining an option for the post-convolution function
+// Class defining an option for the post-convolution function
 class PostConvolutionFunctionOption {
   constructor(_name, _function, _selectorHtml) {
     // the name of the option (string)
@@ -395,51 +474,22 @@ class CellularAutomaton {
   }
 
   createControlPanel() {
+
+    this.controlPanel = new ControlPanel(this.id + '-control-panel', this.id + ' control panel');
+    this.controlPanel.className = 'cellular-automaton-control-panel';
+
     // use the following to pass the parent object to functions etc.
     var _cellularAutomaton = this;
 
-    function addControlButton(_buttonHTML, _onclickFunction) {
-      var newButton = document.createElement('button')
-      newButton.innerHTML = _buttonHTML;
-      newButton.onclick = _onclickFunction;
-      newButton.className = "cellular-automaton-control-button";
-      _cellularAutomaton.controlPanel.appendChild(newButton);
-      return newButton;
-    }
-
-    // Create a div to contain the control panel
-    this.controlPanel = document.createElement('div');
-    this.controlPanel.id = this.id + '-control-panel';
-    this.controlPanel.className = 'cellular-automaton-control-panel';
     // Add control buttons
     // buttonText (string) : the innerText of the button
     // onClickFunction (function) : the onClick function of the button
-    this.controlPanel.playButton = addControlButton('Play', function() {_cellularAutomaton.play()});
-    this.controlPanel.pauseButton = addControlButton('Pause', function() {_cellularAutomaton.pause()});
-    this.controlPanel.randomiseGridButton = addControlButton('Randomise <u>G</u>rid', function() {_cellularAutomaton.randomiseGrid()});
-    this.controlPanel.randomiseConvolutionMatrixButton = addControlButton('Randomise Convolution <u>M</u>atrix', function() {_cellularAutomaton.convolutionMatrix.randomise();});
-    // Add parameter inputs
-    function addNumberInput(_inputId, _labelHTML, _onchangeFunction, _step = 0.01, _parentNode = _cellularAutomaton.controlPanel) {
-      // if label innerHTML is supplied, add the label
-      if (_labelHTML) {
-        var labelElement;
-        labelElement = document.createElement("label");
-        labelElement.htmlFor = _inputId;
-        labelElement.innerHTML = _labelHTML;
-        labelElement.className = "cellular-automaton-number-input-label";
-        _parentNode.appendChild(labelElement);
-      }
-      var inputElement = document.createElement("input");
-      inputElement.type = "number";
-      inputElement.id = _inputId;
-      inputElement.step = _step;
-      inputElement.onchange = _onchangeFunction;
-      inputElement.className = "cellular-automaton-number-input";
-      _parentNode.appendChild(inputElement);
-      return inputElement;
-    }
-    this.controlPanel.coefficientPInput = addNumberInput("coefficient-p", "p =", function() {_cellularAutomaton._coefficientP = this.value;}, 0.01);
-    this.controlPanel.offsetKInput = addNumberInput("offset-k", "k =", function() {_cellularAutomaton._offsetK = this.value;}, 0.01);
+    this.controlPanel.playButton = this.controlPanel.addButton('Play', function() {_cellularAutomaton.play()});
+    this.controlPanel.pauseButton = this.controlPanel.addButton('Pause', function() {_cellularAutomaton.pause()});
+    this.controlPanel.randomiseGridButton = this.controlPanel.addButton('Randomise <u>G</u>rid', function() {_cellularAutomaton.randomiseGrid()});
+    this.controlPanel.randomiseConvolutionMatrixButton = this.controlPanel.addButton('Randomise Convolution <u>M</u>atrix', function() {_cellularAutomaton.convolutionMatrix.randomise();});
+    this.controlPanel.coefficientPInput = this.controlPanel.addNumberInput("coefficient-p", "p =", function() {_cellularAutomaton._coefficientP = this.value;}, 0.01);
+    this.controlPanel.offsetKInput = this.controlPanel.addNumberInput("offset-k", "k =", function() {_cellularAutomaton._offsetK = this.value;}, 0.01);
     // Add the iteration counter
     var iterationCounterParagraph = document.createElement("p");
     iterationCounterParagraph.innerText = "Iterations: ";
@@ -468,59 +518,29 @@ class CellularAutomaton {
     colorControlTable.body.row[0] = document.createElement('tr');
     colorControlTable.body.row[0].appendChild(document.createElement('th')).innerText = 'at +1';
     colorControlTable.body.row[0].appendChild(document.createElement('td'));
-    this.controlPanel.saturationAtPlusOneInput = addNumberInput("saturation-at-plus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtPlusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[0].appendChild(document.createElement('td')) );
-    this.controlPanel.lightnessAtPlusOneInput = addNumberInput("lightness-at-plus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtPlusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[0].appendChild(document.createElement('td')) );
+    this.controlPanel.saturationAtPlusOneInput = this.controlPanel.addNumberInput("saturation-at-plus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtPlusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[0].appendChild(document.createElement('td')) );
+    this.controlPanel.lightnessAtPlusOneInput = this.controlPanel.addNumberInput("lightness-at-plus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtPlusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[0].appendChild(document.createElement('td')) );
     colorControlTable.body.appendChild(colorControlTable.body.row[0]);
     // "At 0" controls
     colorControlTable.body.row[1] = document.createElement('tr');
     colorControlTable.body.row[1].appendChild(document.createElement('th')).innerText = 'at \xa00';
-    this.controlPanel.hueAtZeroInput = addNumberInput("hue-at-zero", null, function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _cellularAutomaton.color._hueAtZero = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
-    this.controlPanel.saturationAtZeroInput = addNumberInput("saturation-at-zero", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtZero = parseFloat(this.value);}, 0.01, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
-    this.controlPanel.lightnessAtZeroInput = addNumberInput("lightness-at-zero", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtZero = parseFloat(this.value);}, 0.01, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
+    this.controlPanel.hueAtZeroInput = this.controlPanel.addNumberInput("hue-at-zero", null, function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _cellularAutomaton.color._hueAtZero = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
+    this.controlPanel.saturationAtZeroInput = this.controlPanel.addNumberInput("saturation-at-zero", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtZero = parseFloat(this.value);}, 0.01, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
+    this.controlPanel.lightnessAtZeroInput = this.controlPanel.addNumberInput("lightness-at-zero", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtZero = parseFloat(this.value);}, 0.01, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
     colorControlTable.body.appendChild(colorControlTable.body.row[1]);
     // "At -1" controls
     colorControlTable.body.row[2] = document.createElement('tr');
     colorControlTable.body.row[2].appendChild(document.createElement('th')).innerText = 'at -1';
-    this.controlPanel.hueSpreadInput = addNumberInput("hue-spread", null, function() {_cellularAutomaton.color._hueSpread = parseFloat(this.value);}, 1, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
-    this.controlPanel.saturationAtMinusOneInput = addNumberInput("saturation-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
-    this.controlPanel.lightnessAtMinusOneInput = addNumberInput("lightness-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    this.controlPanel.hueSpreadInput = this.controlPanel.addNumberInput("hue-spread", null, function() {_cellularAutomaton.color._hueSpread = parseFloat(this.value);}, 1, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    this.controlPanel.saturationAtMinusOneInput = this.controlPanel.addNumberInput("saturation-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    this.controlPanel.lightnessAtMinusOneInput = this.controlPanel.addNumberInput("lightness-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
     colorControlTable.body.appendChild(colorControlTable.body.row[2]);
     // Add the table body to the table, and the table to the control panel div
     colorControlTable.appendChild(colorControlTable.body);
     this.controlPanel.appendChild(colorControlTable);
 
-    // Convolution Matrix Display table
-    this.controlPanel.convolutionMatrixDisplayTable = document.createElement('table');
-    this.controlPanel.convolutionMatrixDisplayTable.id = this.id + '-convolution-matrix-display-table';
-    this.controlPanel.convolutionMatrixDisplayTable.className = 'convolution-matrix-display-table';
-    // body
-    this.controlPanel.convolutionMatrixDisplayTable.body = document.createElement('tbody');
-    this.controlPanel.convolutionMatrixDisplayTable.body.row = new Array(this.convolutionMatrix.sizeY);
-    for(var y = 0; y < this.convolutionMatrix.sizeY; y++) {
-      this.controlPanel.convolutionMatrixDisplayTable.body.row[y] = document.createElement('tr');
-      this.controlPanel.convolutionMatrixDisplayTable.body.row[y].cell = new Array(this.convolutionMatrix.sizeX);
-      for(var x = 0; x < this.convolutionMatrix.sizeX; x++) {
-        this.controlPanel.convolutionMatrixDisplayTable.body.row[y].cell[x] = document.createElement('td');
-        this.controlPanel.convolutionMatrixDisplayTable.body.row[y].appendChild(this.controlPanel.convolutionMatrixDisplayTable.body.row[y].cell[x]);
-      }
-      this.controlPanel.convolutionMatrixDisplayTable.body.appendChild(this.controlPanel.convolutionMatrixDisplayTable.body.row[y]);
-    }
-    this.controlPanel.convolutionMatrixDisplayTable.appendChild(this.controlPanel.convolutionMatrixDisplayTable.body);
-    this.controlPanel.appendChild(this.controlPanel.convolutionMatrixDisplayTable);
-
-    // method to refresh the values in the display table
-    this.controlPanel.convolutionMatrixDisplayTable.refresh = function() {
-      for(var y = 0; y < _cellularAutomaton.convolutionMatrix.sizeY; y++) {
-        for(var x = 0; x < _cellularAutomaton.convolutionMatrix.sizeX; x++) {
-          // if the value is not negative, add a non-breaking space to left-pad the cell content 
-          var paddingSpace = _cellularAutomaton.convolutionMatrix.matrixElement[x][y] < 0 ? '' : '\xa0';
-          this.body.row[y].cell[x].innerText = paddingSpace + _cellularAutomaton.convolutionMatrix.matrixElement[x][y].toString();
-        }
-      }
-    }
-
-    // an alternate accessor for the display table (needed to access convolutionMatrixDisplayTable methods from within the convolutionMatrix object)
-    this.convolutionMatrix.displayTable = this.controlPanel.convolutionMatrixDisplayTable;
+    // Add the convolution matrix control panel
+    this.controlPanel.convolutionMatrix = this.controlPanel.appendChild(this.convolutionMatrix.controlPanel);
 
     // set up keyboard shortcuts
     window.onkeydown = function(e) {
