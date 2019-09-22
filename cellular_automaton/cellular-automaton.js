@@ -158,43 +158,43 @@ class ConvolutionMatrix {
     }
   }
 
-  // Method: returns the sum of all the values in the matrix
-  getSum() {
-    var sum = 0;
+  // getter: returns the sum of all the values in the matrix
+  get sum() {
+    var _sum = 0;
     for(var mY = 0; mY < this.sizeY; mY++) {
       for(var mX = 0; mX < this.sizeX; mX++) {
-        sum += this.matrixElement[mX][mY];
+        _sum += this.matrixElement[mX][mY];
       }
     }    
-    return sum;
+    return _sum;
   }
 
   // Method: returns 1 or -1, depending on the sign of the matrix's sum.
   // If the sum is zero, returns 1
-  getSign() {
-    return (this.getSum() >= 0) ? 1 : -1;
+  get sign() {
+    return (this.sum >= 0) ? 1 : -1;
   }
 
   // Method: returns the sum of all the *absolute* values in the matrix
-  getAbsSum() {
-    var absSum = 0;
+  get absSum() {
+    var _absSum = 0;
     for(var mY = 0; mY < this.sizeY; mY++) {
       for(var mX = 0; mX < this.sizeX; mX++) {
-        absSum += Math.abs(this.matrixElement[mX][mY]);
+        _absSum += Math.abs(this.matrixElement[mX][mY]);
       }
     }    
-    return absSum;
+    return _absSum;
   }
 
   // Method: returns the sum of all the values in the matrix
-  getRms() {
-    var sumOfSquares = 0;
+  get rms() {
+    var _sumOfSquares = 0;
     for(var mY = 0; mY < this.sizeY; mY++) {
       for(var mX = 0; mX < this.sizeX; mX++) {
-        sumOfSquares += this.matrixElement[mX][mY] ** 2;
+        _sumOfSquares += this.matrixElement[mX][mY] ** 2;
       }
     }
-    return Math.sqrt(sumOfSquares / (this.sizeY * this.sizeY));
+    return Math.sqrt(_sumOfSquares / (this.sizeY * this.sizeY));
   }
 
 } // End of ConvolutionMatrix class definition
@@ -209,6 +209,133 @@ class PostConvolutionFunctionOption {
     // HTML representation of the function
     this.selectorHtml = _selectorHtml
   }
+}
+
+class colorModule {
+
+  // an object for controlling colour
+  constructor() {
+    // used to pass this object down to other functions
+    var _colorModule = this;
+
+    // pseudo-private properties
+    this._hueAtZero = 0;
+    this._hueSpread = 0;
+    this._saturationAtZero = 0;
+    this._saturationAtPlusOne = 0;
+    this._saturationAtMinusOne = 0;
+    this._lightnessAtZero = 0;
+    this._lightnessAtPlusOne = 0;
+    this._lightnessAtMinusOne = 0;
+    this.controlPanel = new ControlPanel();
+
+    // The colour controls go in a table
+    var colorControlTable = document.createElement('table');
+    colorControlTable.id = this.id + '-color-control-table';
+    colorControlTable.className = 'color-control-table';
+    // header
+    colorControlTable.header = document.createElement('thead');
+    colorControlTable.header.row = document.createElement('tr');
+    colorControlTable.header.row.appendChild(document.createElement('th'));
+    colorControlTable.header.row.appendChild(document.createElement('th')).innerText = 'Hue';
+    colorControlTable.header.row.appendChild(document.createElement('th')).innerText = 'Saturation';
+    colorControlTable.header.row.appendChild(document.createElement('th')).innerText = 'Lightness';
+    colorControlTable.header.appendChild(colorControlTable.header.row);
+    colorControlTable.appendChild(colorControlTable.header);
+    //body
+    colorControlTable.body = document.createElement('tbody');
+    colorControlTable.body.row = new Array(3);
+    // "At +1" controls
+    colorControlTable.body.row[0] = document.createElement('tr');
+    colorControlTable.body.row[0].appendChild(document.createElement('th')).innerText = 'at +1';
+    colorControlTable.body.row[0].appendChild(document.createElement('td'));
+    this.controlPanel.saturationAtPlusOneInput = this.controlPanel.addNumberInput("saturation-at-plus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _colorModule._saturationAtPlusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[0].appendChild(document.createElement('td')) );
+    this.controlPanel.lightnessAtPlusOneInput = this.controlPanel.addNumberInput("lightness-at-plus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _colorModule._lightnessAtPlusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[0].appendChild(document.createElement('td')) );
+    colorControlTable.body.appendChild(colorControlTable.body.row[0]);
+    // "At 0" controls
+    colorControlTable.body.row[1] = document.createElement('tr');
+    colorControlTable.body.row[1].appendChild(document.createElement('th')).innerText = 'at \xa00';
+    this.controlPanel.hueAtZeroInput = this.controlPanel.addNumberInput("hue-at-zero", null, function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _colorModule._hueAtZero = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
+    this.controlPanel.saturationAtZeroInput = this.controlPanel.addNumberInput("saturation-at-zero", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _colorModule._saturationAtZero = parseFloat(this.value);}, 0.01, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
+    this.controlPanel.lightnessAtZeroInput = this.controlPanel.addNumberInput("lightness-at-zero", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _colorModule._lightnessAtZero = parseFloat(this.value);}, 0.01, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
+    colorControlTable.body.appendChild(colorControlTable.body.row[1]);
+    // "At -1" controls
+    colorControlTable.body.row[2] = document.createElement('tr');
+    colorControlTable.body.row[2].appendChild(document.createElement('th')).innerText = 'at -1';
+    this.controlPanel.hueSpreadInput = this.controlPanel.addNumberInput("hue-spread", null, function() {_colorModule._hueSpread = parseFloat(this.value);}, 1, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    this.controlPanel.saturationAtMinusOneInput = this.controlPanel.addNumberInput("saturation-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _colorModule._saturationAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    this.controlPanel.lightnessAtMinusOneInput = this.controlPanel.addNumberInput("lightness-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _colorModule._lightnessAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
+    colorControlTable.body.appendChild(colorControlTable.body.row[2]);
+    // Add the table body to the table, and the table to the control panel div
+    colorControlTable.appendChild(colorControlTable.body);
+    this.controlPanel.appendChild(colorControlTable);
+
+  }
+
+  // getters and setters
+
+  // Hue
+  get hueAtZero() {
+    return _hueAtZero;
+  }
+  set hueAtZero(hue) {
+    this.controlPanel.hueAtZeroInput.value = hue;
+    this._hueAtZero = hue;
+  }
+  get hueSpread() {
+    return this._hueSpread;
+  }
+  set hueSpread(spread) {
+    this.controlPanel.hueSpreadInput.value = spread;
+    this._hueSpread = spread;
+  }
+
+  // Saturation
+  get saturationAtPlusOne() {
+    return this._saturationAtPlusOne;
+  }
+  set saturationAtPlusOne(s) {
+    this.controlPanel.saturationAtPlusOneInput.value = s;
+    this._saturationAtPlusOne = s;
+  }
+  get saturationAtZero() {
+    return _saturationAtZero;
+  }
+  set saturationAtZero(s) {
+    this.controlPanel.saturationAtZeroInput.value = s;
+    this._saturationAtZero = s;
+  }
+  get saturationAtMinusOne() {
+    return this._saturationAtMinusOne;
+  }
+  set saturationAtMinusOne(s) {
+    this.controlPanel.saturationAtMinusOneInput.value = s;
+    this._saturationAtMinusOne = s;
+  }
+
+  // Lightness
+  get lightnessAtPlusOne() {
+    return this._lightnessAtPlussOne;
+  }
+  set lightnessAtPlusOne(l) {
+    this.controlPanel.lightnessAtPlusOneInput.value = l;
+    this._lightnessAtPlusOne = l;
+  }
+  get lightnessAtZero() {
+    return _lightnessAtZero;
+  }
+  set lightnessAtZero(l) {
+    this.controlPanel.lightnessAtZeroInput.value = l;
+    this._lightnessAtZero = l;
+  }
+  get lightnessAtMinusOne() {
+    return this._lightnessAtMinusOne;
+  }
+  set lightnessAtMinusOne(l) {
+    this.controlPanel.lightnessAtMinusOneInput.value = l;
+    this._lightnessAtMinusOne = l;
+  }
+
 }
 
 // class defining Cellular Automaton
@@ -282,76 +409,18 @@ class CellularAutomaton {
     // boolean, keeps track of whether the automaton is currently playing
     this.isPlaying = false;
 
-    // an object for controlling colour
-    this.color = {
-
-      // pseudo-private properties
-      _hueAtZero: 0,
-      _hueSpread: 0,
-      _saturationAtZero: 0,
-      _saturationAtPlusOne: 0,
-      _saturationAtMinusOne: 0,
-      _lightnessAtZero: 0,
-      _lightnessAtPlusOne: 0,
-      _lightnessAtMinusOne: 0,
-
-      // getters and setters
-
-      // Hue
-      get hueAtZero() {return _hueAtZero;},
-      set hueAtZero(hue) {
-        _cellularAutomaton.controlPanel.hueAtZeroInput.value = hue;
-        this._hueAtZero = hue;
-      },
-      get hueSpread() {return this._hueSpread;},
-      set hueSpread(spread) {
-        _cellularAutomaton.controlPanel.hueSpreadInput.value = spread;
-        this._hueSpread = spread;
-      },
-      // Saturation
-      get saturationAtPlusOne() {return this._saturationAtPlusOne;},
-      set saturationAtPlusOne(s) {
-        this._saturationAtPlusOne = s;
-        _cellularAutomaton.controlPanel.saturationAtPlusOneInput.value = s;
-      },
-      get saturationAtZero() {return _saturationAtZero;},
-      set saturationAtZero(s) {
-        this._saturationAtZero = s;
-        _cellularAutomaton.controlPanel.saturationAtZeroInput.value = s;
-      },
-      get saturationAtMinusOne() {return this._saturationAtMinusOne;},
-      set saturationAtMinusOne(s) {
-        this._saturationAtMinusOne = s;
-        _cellularAutomaton.controlPanel.saturationAtMinusOneInput.value = s;
-      },
-      // Lightness
-      get lightnessAtPlusOne() {return this._lightnessAtPlussOne;},
-      set lightnessAtPlusOne(s) {
-        this._lightnessAtPlusOne = s;
-        _cellularAutomaton.controlPanel.lightnessAtPlusOneInput.value = s;
-      },
-      get lightnessAtZero() {return _lightnessAtZero;},
-      set lightnessAtZero(h) {
-        this._lightnessAtZero = h;
-        _cellularAutomaton.controlPanel.lightnessAtZeroInput.value = h;
-      },
-      get lightnessAtMinusOne() {return this._lightnessAtMinusOne;},
-      set lightnessAtMinusOne(s) {
-        this._lightnessAtMinusOne = s;
-        _cellularAutomaton.controlPanel.lightnessAtMinusOneInput.value = s;
-      }
-
-    }
-
     // psuedo-private properties. Do not access directly, use their getters and setters instead.
     this._coefficientP;
     this._offsetK;
     this._iterationCount;
 
-    // set up the convolution matrix
+    // Set up the colour module
+    this.color = new colorModule();
+
+    // Set up the convolution matrix
     this.convolutionMatrix = new ConvolutionMatrix(_convolutionMatrixRadiusX, _convolutionMatrixRadiusY);
 
-    // create the control panel (not added to the document at this point).
+    // Create the control panel (not added to the document at this point).
     this.createControlPanel();
 
     // Set the iteration count to zero
@@ -382,7 +451,7 @@ class CellularAutomaton {
     // ****************************************************************************************************
 
     // Calculate P normalised for the current matrix.
-    this.normalisedP = this.coefficientP * this.convolutionMatrix.getSum();
+    this.normalisedP = this.coefficientP * this.convolutionMatrix.sum;
 
     // set up a canvas to draw on.
     this.canvas = document.createElement('canvas');
@@ -498,46 +567,8 @@ class CellularAutomaton {
     iterationCounterParagraph.appendChild(_cellularAutomaton.iterationCounter);
     this.controlPanel.appendChild(iterationCounterParagraph);
 
-    // The colour controls go in a table
-    var colorControlTable = document.createElement('table');
-    colorControlTable.id = this.id + '-color-control-table';
-    colorControlTable.className = 'color-control-table';
-    // header
-    colorControlTable.header = document.createElement('thead');
-    colorControlTable.header.row = document.createElement('tr')
-    colorControlTable.header.row.appendChild(document.createElement('th'));
-    colorControlTable.header.row.appendChild(document.createElement('th')).innerText = 'Hue';
-    colorControlTable.header.row.appendChild(document.createElement('th')).innerText = 'Saturation';
-    colorControlTable.header.row.appendChild(document.createElement('th')).innerText = 'Lightness';
-    colorControlTable.header.appendChild(colorControlTable.header.row);
-    colorControlTable.appendChild(colorControlTable.header);
-    //body
-    colorControlTable.body = document.createElement('tbody');
-    colorControlTable.body.row = new Array(3);
-    // "At +1" controls
-    colorControlTable.body.row[0] = document.createElement('tr');
-    colorControlTable.body.row[0].appendChild(document.createElement('th')).innerText = 'at +1';
-    colorControlTable.body.row[0].appendChild(document.createElement('td'));
-    this.controlPanel.saturationAtPlusOneInput = this.controlPanel.addNumberInput("saturation-at-plus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtPlusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[0].appendChild(document.createElement('td')) );
-    this.controlPanel.lightnessAtPlusOneInput = this.controlPanel.addNumberInput("lightness-at-plus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtPlusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[0].appendChild(document.createElement('td')) );
-    colorControlTable.body.appendChild(colorControlTable.body.row[0]);
-    // "At 0" controls
-    colorControlTable.body.row[1] = document.createElement('tr');
-    colorControlTable.body.row[1].appendChild(document.createElement('th')).innerText = 'at \xa00';
-    this.controlPanel.hueAtZeroInput = this.controlPanel.addNumberInput("hue-at-zero", null, function() {var v = this.value %= 360; v = v < 0 ? v + 360 : v; _cellularAutomaton.color._hueAtZero = v; this.value = v; this.style.borderColor = 'hsl(' + v  + ' deg, 100%, 50%)';}, 1, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
-    this.controlPanel.saturationAtZeroInput = this.controlPanel.addNumberInput("saturation-at-zero", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtZero = parseFloat(this.value);}, 0.01, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
-    this.controlPanel.lightnessAtZeroInput = this.controlPanel.addNumberInput("lightness-at-zero", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtZero = parseFloat(this.value);}, 0.01, colorControlTable.body.row[1].appendChild(document.createElement('td')) );
-    colorControlTable.body.appendChild(colorControlTable.body.row[1]);
-    // "At -1" controls
-    colorControlTable.body.row[2] = document.createElement('tr');
-    colorControlTable.body.row[2].appendChild(document.createElement('th')).innerText = 'at -1';
-    this.controlPanel.hueSpreadInput = this.controlPanel.addNumberInput("hue-spread", null, function() {_cellularAutomaton.color._hueSpread = parseFloat(this.value);}, 1, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
-    this.controlPanel.saturationAtMinusOneInput = this.controlPanel.addNumberInput("saturation-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._saturationAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
-    this.controlPanel.lightnessAtMinusOneInput = this.controlPanel.addNumberInput("lightness-at-minus-1", null, function() {this.value = Math.min(1, Math.max(0, this.value)); _cellularAutomaton.color._lightnessAtMinusOne = parseFloat(this.value);}, 0.01, colorControlTable.body.row[2].appendChild(document.createElement('td')) );
-    colorControlTable.body.appendChild(colorControlTable.body.row[2]);
-    // Add the table body to the table, and the table to the control panel div
-    colorControlTable.appendChild(colorControlTable.body);
-    this.controlPanel.appendChild(colorControlTable);
+    // Add the colour control panel
+    this.controlPanel.color = this.controlPanel.appendChild(this.color.controlPanel);
 
     // Add the convolution matrix control panel
     this.controlPanel.convolutionMatrix = this.controlPanel.appendChild(this.convolutionMatrix.controlPanel);
@@ -606,7 +637,7 @@ class CellularAutomaton {
     this.iterationCount++;
 
     // 
-    this.normalisedP = this.coefficientP * this.convolutionMatrix.getSum();
+    this.normalisedP = this.coefficientP * this.convolutionMatrix.sum;
 
     // helper values for calculating colours
     var H_at0 = this.color._hueAtZero;
