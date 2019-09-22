@@ -29,26 +29,34 @@ table {
 
 .cellular-automaton-control-panel {
   border: 1px solid #000;
-   border-radius: 0.5em;
+  border-radius: 0.5em;
   background-color: rgba(0, 0, 0, 0.6);
   width: max-content;
+}
+
+.cellular-automaton-control-panel>div {
+  border: 1px solid #000;
+  border-radius: 0.5em;
+  margin: 0.5em;
   padding: 0.5em;
 }
 
-.cellular-automaton-control-panel>* {
-  margin: 0.5em;
+.cellular-automaton-control-panel button,
+.cellular-automaton-control-panel input,
+.cellular-automaton-control-panel label {
+  margin-right:0.5em;
+}
+.cellular-automaton-control-panel button,
+.cellular-automaton-control-panel input {
+  border:2px solid black;
+  border-radius: 0.3em;
+}
+.cellular-automaton-control-panel input {
+  padding-left: 0.3em;
 }
 
-.cellular-automaton-control-panel button {
-  border:2px solid black;
-}
 .cellular-automaton-control-panel button.active {
   border-color: yellow;
-}
-
-.cellular-automaton-control-panel table {
-  border: 1px solid black;
-  border-radius: 0.5em;
 }
 
 .cellular-automaton-control-panel .color-control-table td, th {
@@ -64,6 +72,7 @@ table {
   font-size: 0.6rem;
   table-layout: fixed;
   width: min-content;
+  margin-bottom: 0.5em;
 }
 
 .cellular-automaton-control-panel .convolution-matrix-display-table td {

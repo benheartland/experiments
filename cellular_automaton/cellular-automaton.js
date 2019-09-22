@@ -44,21 +44,21 @@ function HSLToRGB(h,s,l) {
 
 // Class defining control panels (for both the main object and sub-panels for sub-objects)
 // N.B. Uses a 'function' declaration rather than a 'class' notation so that the new object 
-// can be the div element itself rather than a containing object.
+// can be the containing div element itself rather than a containing object.
 function ControlPanel(_id = null, _title = null) {
 
-  // 
+  // Create a containing div
   var controlPanel = document.createElement('div');
   if (_id) controlPanel.id = _id;
   if (_title) controlPanel.title = _title;
 
-  controlPanel.addButton = function(_buttonHTML, _onclickFunction) {
-    var newButton = document.createElement('button')
-    newButton.innerHTML = _buttonHTML;
-    newButton.onclick = _onclickFunction;
-    newButton.className = "cellular-automaton-control-button";
-    this.appendChild(newButton);
-    return newButton;
+  controlPanel.addButton = function(_buttonHTML, _onclickFunction, _parentElement = this) {
+    var buttonElement = document.createElement('button');
+    buttonElement.innerHTML = _buttonHTML;
+    buttonElement.onclick = _onclickFunction;
+    buttonElement.className = "cellular-automaton-control-button";
+    _parentElement.appendChild(buttonElement);
+    return buttonElement;
   }
 
   // Add parameter inputs
@@ -90,6 +90,10 @@ class ConvolutionMatrix {
   // Takes the "radius" of the matrix in each dimension as parameter, i.e. the number of
   // cells from the centre cell to the edge, including the centre cell
   constructor(_radiusX, _radiusY) {
+
+    // Use this to pass the convolutionMatrix object to inner functions etc.
+    var _convolutionMatrix = this;
+
     this.radiusX = _radiusX;
     this.radiusY = _radiusY;
     // calculate the size of the matrix in each dimension
@@ -102,9 +106,9 @@ class ConvolutionMatrix {
     }
 
     // Convolution Matrix control sub-panel
-    // --------------------------------
+    // ------------------------------------
     // Create the control sub-panel
-    this.controlPanel = new ControlPanel('convolutionMatrix', 'Convolution Matrix control panel');
+    this.controlPanel = new ControlPanel(null, 'Convolution Matrix control panel');
     // Create the matrix display table
     this.controlPanel.displayTable = document.createElement('table');
     this.controlPanel.displayTable.className = 'convolution-matrix-display-table';
@@ -124,6 +128,8 @@ class ConvolutionMatrix {
     this.controlPanel.displayTable.appendChild(this.controlPanel.displayTable.body);
     // append the table to the sub-panel div
     this.controlPanel.appendChild(this.controlPanel.displayTable);
+    // Add the Randomise button
+    this.controlPanel.randomiseConvolutionMatrixButton = this.controlPanel.addButton('Randomise Convolution <u>M</u>atrix', function() {_convolutionMatrix.randomise();});
 
     // method to refresh the values in the display table
     this.controlPanel.displayTable.refresh = function() {
@@ -211,10 +217,11 @@ class PostConvolutionFunctionOption {
   }
 }
 
+// an object for controlling colour
 class colorModule {
 
-  // an object for controlling colour
   constructor() {
+
     // used to pass this object down to other functions
     var _colorModule = this;
 
@@ -364,7 +371,9 @@ class CellularAutomaton {
   }
   
   // getter that retrieves the value of the psuedo-private property _coefficientP
-  get coefficientP() {return this._coefficientP;}
+  get coefficientP() {
+    return this._coefficientP;
+  }
 
   // set the value of parameter "coefficient p", used in the post-convolution function, and
   // update its value in the UI
@@ -451,7 +460,7 @@ class CellularAutomaton {
     // ****************************************************************************************************
 
     // Calculate P normalised for the current matrix.
-    this.normalisedP = this.coefficientP * this.convolutionMatrix.sum;
+    this.normalisedP = this.coefficientP * this.convolutionMatrix.rms;
 
     // set up a canvas to draw on.
     this.canvas = document.createElement('canvas');
@@ -489,7 +498,6 @@ class CellularAutomaton {
     this.currentDisplayStepIndex = - 1;
     this.currentReferenceStepIndex = 0;
     this.currentWorkingStepIndex = 1;
-
 
 /*
     // Sand dunes
@@ -542,6 +550,7 @@ class CellularAutomaton {
     this.iterationCount = 0;
   }
 
+  // Method: create the main control panel for the cellular automaton
   createControlPanel() {
 
     this.controlPanel = new ControlPanel(this.id + '-control-panel', this.id + ' control panel');
@@ -550,22 +559,31 @@ class CellularAutomaton {
     // use the following to pass the parent object to functions etc.
     var _cellularAutomaton = this;
 
-    // Add control buttons
-    // buttonText (string) : the innerText of the button
+    // addButton() method
+    // buttonHTML (string) : the innerHTML of the button
     // onClickFunction (function) : the onClick function of the button
-    this.controlPanel.playButton = this.controlPanel.addButton('Play', function() {_cellularAutomaton.play()});
-    this.controlPanel.pauseButton = this.controlPanel.addButton('Pause', function() {_cellularAutomaton.pause()});
-    this.controlPanel.randomiseGridButton = this.controlPanel.addButton('Randomise <u>G</u>rid', function() {_cellularAutomaton.randomiseGrid()});
-    this.controlPanel.randomiseConvolutionMatrixButton = this.controlPanel.addButton('Randomise Convolution <u>M</u>atrix', function() {_cellularAutomaton.convolutionMatrix.randomise();});
-    this.controlPanel.coefficientPInput = this.controlPanel.addNumberInput("coefficient-p", "p =", function() {_cellularAutomaton._coefficientP = this.value;}, 0.01);
-    this.controlPanel.offsetKInput = this.controlPanel.addNumberInput("offset-k", "k =", function() {_cellularAutomaton._offsetK = this.value;}, 0.01);
+    // parentElement (HTMLElement) : the Element to which the new button will be appended. Defaults to 'this'
+
+    // Create the transport section of the control panel
+    this.controlPanel.transport = document.createElement('div');
+    this.controlPanel.transport.playButton = this.controlPanel.addButton('Play', function() {_cellularAutomaton.play()}, this.controlPanel.transport);
+    this.controlPanel.transport.pauseButton = this.controlPanel.addButton('Pause', function() {_cellularAutomaton.pause()}, this.controlPanel.transport);
     // Add the iteration counter
-    var iterationCounterParagraph = document.createElement("p");
-    iterationCounterParagraph.innerText = "Iterations: ";
+    var iterationCounterOuterSpan = document.createElement("span");
+    iterationCounterOuterSpan.innerText = "Iterations: ";
     this.iterationCounter = document.createElement("span");
     this.iterationCounter.id = "iteration-count";
-    iterationCounterParagraph.appendChild(_cellularAutomaton.iterationCounter);
-    this.controlPanel.appendChild(iterationCounterParagraph);
+    iterationCounterOuterSpan.appendChild(_cellularAutomaton.iterationCounter);
+    this.controlPanel.transport.appendChild(iterationCounterOuterSpan);
+    // Add the transport div
+    this.controlPanel.appendChild(this.controlPanel.transport);
+
+    // Create the parameter entry section of the control panel
+    this.controlPanel.parameters = document.createElement('div');
+    this.controlPanel.coefficientPInput = this.controlPanel.addNumberInput("coefficient-p", "p =", function() {_cellularAutomaton._coefficientP = this.value;}, 0.01, this.controlPanel.parameters);
+    this.controlPanel.offsetKInput = this.controlPanel.addNumberInput("offset-k", "k =", function() {_cellularAutomaton._offsetK = this.value;}, 0.01, this.controlPanel.parameters);
+    this.controlPanel.randomiseGridButton = this.controlPanel.addButton('Randomise <u>G</u>rid', function() {_cellularAutomaton.randomiseGrid()}, this.controlPanel.parameters);
+    this.controlPanel.appendChild(this.controlPanel.parameters);
 
     // Add the colour control panel
     this.controlPanel.color = this.controlPanel.appendChild(this.color.controlPanel);
@@ -590,18 +608,18 @@ class CellularAutomaton {
           case "p": case "P": _cellularAutomaton.controlPanel.coefficientPInput.focus(); break;
           case "i": case "I": _cellularAutomaton.coefficientP *= -1; break;
           case "k": case "K": _cellularAutomaton.controlPanel.offsetKInput.focus(); break;
-          case "h": case "H": _cellularAutomaton.controlPanel.hueAtZeroInput.focus(); break;
-          case "s": case "S": _cellularAutomaton.controlPanel.saturationAtZeroInput.focus(); break;
-          case "l": case "L": _cellularAutomaton.controlPanel.lightnessAtZeroInput.focus(); break;
+          case "h": case "H": _cellularAutomaton.color.controlPanel.hueAtZeroInput.focus(); break;
+          case "s": case "S": _cellularAutomaton.color.controlPanel.saturationAtZeroInput.focus(); break;
+          case "l": case "L": _cellularAutomaton.color.controlPanel.lightnessAtZeroInput.focus(); break;
           // Hide the control panel
           case "c": case "C": 
-            if(_cellularAutomaton.controlPanel.style.visibility == 'hidden') {
-              _cellularAutomaton.controlPanel.style.visibility = 'visible';
-              document.body.style.cursor = 'inherit';
+            if(_cellularAutomaton.controlPanel.style.opacity == 1 || !_cellularAutomaton.controlPanel.style.opacity) {
+              _cellularAutomaton.controlPanel.style.opacity = 0;
+              document.body.style.cursor = 'none';
             }
             else {
-              _cellularAutomaton.controlPanel.style.visibility = 'hidden';
-              document.body.style.cursor = 'none';
+              _cellularAutomaton.controlPanel.style.opacity = 1;
+              document.body.style.cursor = 'inherit';
             }
           break;
         }
@@ -693,8 +711,8 @@ class CellularAutomaton {
     // a timerInterval drives the process. Check that it does not already exist; if it does not, create it. Otherwise do nothing.
     if (!this.isPlaying) {
       this.isPlaying = true;
-      this.controlPanel.playButton.classList.add('active');
-      this.controlPanel.pauseButton.classList.remove('active');
+      this.controlPanel.transport.playButton.classList.add('active');
+      this.controlPanel.transport.pauseButton.classList.remove('active');
       // start the loop at the next animation frame
       var _cellularAutomaton = this;
       this.stepTimer = window.setInterval(function(){_cellularAutomaton.advanceStep()}, _cellularAutomaton.minimumStepDuration);
@@ -706,8 +724,8 @@ class CellularAutomaton {
     // a timerInterval drives the process. Check that it exists; if it does, clear it and make its ID variable undefined. Otherwise do nothing.
     if (this.isPlaying) {
       this.isPlaying = false;
-      this.controlPanel.pauseButton.classList.add('active');
-      this.controlPanel.playButton.classList.remove('active');
+      this.controlPanel.transport.pauseButton.classList.add('active');
+      this.controlPanel.transport.playButton.classList.remove('active');
       var _cellularAutomaton = this;
       window.clearInterval(_cellularAutomaton.stepTimer);
     }
