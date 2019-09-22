@@ -67,7 +67,7 @@ function ControlPanel(_id = null, _title = null) {
     if (_labelHTML) {
       var labelElement;
       labelElement = document.createElement("label");
-      labelElement.htmlFor = _inputId;
+      labelElement.htmlFor = _inputId; // value of the "for" attribute
       labelElement.innerHTML = _labelHTML;
       labelElement.className = "cellular-automaton-number-input-label";
       _parentElement.appendChild(labelElement);
@@ -429,6 +429,18 @@ class CellularAutomaton {
     // Set up the convolution matrix
     this.convolutionMatrix = new ConvolutionMatrix(_convolutionMatrixRadiusX, _convolutionMatrixRadiusY);
 
+    // options for the post-convolution function
+    this.postConvolutionFunctionOption = [
+      new PostConvolutionFunctionOption('linear', function(x) {return _cellularAutomaton.normalisedP*x - _cellularAutomaton.offsetK;}, 'p*x - k'),
+      new PostConvolutionFunctionOption('sine', function(x) {return Math.sin(_cellularAutomaton.normalisedP*x - _cellularAutomaton.offsetK);}, 'sin(p*x - k)'),
+      new PostConvolutionFunctionOption('cosine', function(x) {return Math.cos(_cellularAutomaton.normalisedP*x - _cellularAutomaton.offsetK);}, 'cos(p*x - k)'),
+      // N.B. Theoretically, tan can return undefined values, so we handle these by turning them into zeros.
+      new PostConvolutionFunctionOption('tangent', function(x) {var tanResult = Math.tan(_cellularAutomaton.normalisedP * x - _cellularAutomaton.offsetK); return isNaN(tanResult) ? _cellularAutomaton.offsetK : tanResult + _cellularAutomaton.offsetK;}, 'tan(p*x - k)'),
+      new PostConvolutionFunctionOption('s-curve', function(x) {return 2/(1 + Math.exp(-_cellularAutomaton.normalisedP * x - _cellularAutomaton.offsetK)) - 1}, '2/(1 + e^(p*x - k)) - 1')
+    ];
+    // pick one as the default
+    this.selectedPostConvolutionFunction = this.postConvolutionFunctionOption[4].f;
+
     // Create the control panel (not added to the document at this point).
     this.createControlPanel();
 
@@ -521,18 +533,6 @@ class CellularAutomaton {
     [  0.0681379246217424   , -0.08346468578764377  ,  0.41774494253850936 , -0.7299587999242467  , -0.7044833430730679  ]
 */
 
-    // options for the post-convolution function
-    this.postConvolutionFunctionOption = [
-      new PostConvolutionFunctionOption('linear', function(x) {return _cellularAutomaton.normalisedP*x - _cellularAutomaton.offsetK;}, '<span class="function-parameter">p</span>*<span class="function-variable">x</span> + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('sine', function(x) {return Math.sin(_cellularAutomaton.normalisedP*x - _cellularAutomaton.offsetK);}, 'sin(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('cosine', function(x) {return Math.cos(_cellularAutomaton.normalisedP*x - _cellularAutomaton.offsetK);}, 'cos(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
-      // N.B. Theoretically, tan can return undefined values, so we handle these by turning them into zeros.
-      new PostConvolutionFunctionOption('tangent', function(x) {var tanResult = Math.tan(_cellularAutomaton.normalisedP * x - _cellularAutomaton.offsetK); return isNaN(tanResult) ? _cellularAutomaton.offsetK : tanResult + _cellularAutomaton.offsetK;}, 'tan(<span class="function-parameter">p</span>*<span class="function-variable">x</span>) + <span class="function-parameter">k</span>'),
-      new PostConvolutionFunctionOption('s-curve', function(x) {return 2/(1 + Math.exp(-_cellularAutomaton.normalisedP * x - _cellularAutomaton.offsetK)) - 1}, '2/(1 + e<sup>(<span class="function-parameter">p</span>*<span class="function-variable">x</span> - <span class="function-parameter">k</span>)</sup>) - 1')
-    ]
-    // pick one as the default
-    this.postConvolutionFunction = this.postConvolutionFunctionOption[4].f;
-
     // randomise the grid
     this.randomiseGrid();
 
@@ -591,6 +591,27 @@ class CellularAutomaton {
     // Add the convolution matrix control panel
     this.controlPanel.convolutionMatrix = this.controlPanel.appendChild(this.convolutionMatrix.controlPanel);
 
+    // Add the post-convolution function selector
+    this.controlPanel.postConvolutionSelector = document.createElement('div');
+    // Label for the selector input
+    var selectorLabel = document.createElement('label');
+    selectorLabel.htmlFor = 'post-convolution-function-selector';
+    selectorLabel.innerText = 'Post-convolution function:';
+    this.controlPanel.postConvolutionSelector.appendChild(selectorLabel);
+    // The selector dropdown input
+    var selector = this.controlPanel.postConvolutionSelector.appendChild(document.createElement('select'));
+    selector.id = 'post-convolution-function-selector';
+    this.postConvolutionFunctionOption.forEach(function(option) {
+      var HTMLOption = document.createElement('option');
+      HTMLOption.text = option.selectorHtml;
+      HTMLOption.value = option.name;
+      // TODO: HTMLOption.onselect = function() { change selectedPostConvolutionFunction to selection }
+      selector.add(HTMLOption);
+    })
+    this.controlPanel.postConvolutionSelector.appendChild(selector);
+    // Add the selector section to the control panel
+    this.controlPanel.appendChild(this.controlPanel.postConvolutionSelector);
+
     // set up keyboard shortcuts
     window.onkeydown = function(e) {
       // ignore keyboard events when the ctrl key is pressed
@@ -626,7 +647,7 @@ class CellularAutomaton {
       }
     }
 
-  }
+  } // End of createControlPanel()
 
   // appends the display to the given element.
   appendAsChildOfElementWithId(elementId) {
@@ -682,7 +703,7 @@ class CellularAutomaton {
           }
         }
         // pass the result of the matrix convolution through the post-convolution function
-        var _value = this.postConvolutionFunction(cumulativeTotal)
+        var _value = this.selectedPostConvolutionFunction(cumulativeTotal);
         // store the value in the corresponding cell in the next step
         this.currentWorkingStep.cell[gridX][gridY] = _value;
         // set the corresponding pixel in the image data array
