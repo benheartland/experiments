@@ -18,6 +18,10 @@ table {
   border-collapse: collapse;
 }
 
+th, td {
+  padding: 0 0.3em;
+}
+
 .cellular-automaton {
   margin: 1em auto;
 }
@@ -49,7 +53,7 @@ table {
 .cellular-automaton-control-panel button,
 .cellular-automaton-control-panel input {
   border:2px solid black;
-  border-radius: 0.3em;
+  border-radius: 0.2em;
 }
 .cellular-automaton-control-panel input {
   padding-left: 0.3em;
@@ -59,31 +63,39 @@ table {
   border-color: yellow;
 }
 
-.cellular-automaton-control-panel .color-control-table td, th {
-  text-align: center;
-  padding: 0.5em;
+.cellular-automaton-control-panel .color-control-table tr>* {
+  text-align: left;
 }
 
-.cellular-automaton-control-panel .color-control-table td {
-  min-width: 5em;
-}
-
-.cellular-automaton-control-panel .convolution-matrix-display-table {
+.cellular-automaton-control-panel .convolution-matrix .convolution-matrix-display-table {
   cursor: default;
   table-layout: fixed;
   width: min-content;
-  margin-bottom: 0.5em;
 }
 
-.cellular-automaton-control-panel .convolution-matrix-display-table td {
-  white-space: nowrap;
-  width: 1em;
-  height: 1em; 
-  padding: 0.5em;
+.cellular-automaton-control-panel .convolution-matrix button {
+  margin: 0.5em 0.5em 0.5em 0;
+}
+
+.cellular-automaton-control-panel .convolution-matrix .convolution-matrix-display-table tr>*,
+.cellular-automaton-control-panel .convolution-matrix .convolution-matrix-metric-table tr>* {
   border: 1px solid grey;
 }
 
-.cellular-automaton-control-panel .convolution-matrix-display-table td>input {
+.cellular-automaton-control-panel .convolution-matrix .convolution-matrix-display-table td {
+  width: 1em;
+  height: 1em; 
+  padding: 0.5em;
+}
+
+.cellular-automaton-control-panel .convolution-matrix .convolution-matrix-display-table td>input {
   margin: 0;
   padding: 0;
+}
+
+.cellular-automaton-control-panel .convolution-matrix .convolution-matrix-metric-table tr>* {
+  text-align: left;
+}
+.cellular-automaton-control-panel .convolution-matrix .convolution-matrix-metric-table td {
+  cursor: pointer;
 }
