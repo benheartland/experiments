@@ -85,6 +85,40 @@ function ControlPanel(_id = null, _title = null) {
   return controlPanel;
 }
 
+class ConvolutionMatrixElement {
+
+  get value() {return this._value;}
+  set value(v) {
+    // TODO: input validation
+    // set the display
+    this._value = v;
+    // set the display
+    this.displayCell.innerInput.value = v;
+    // set the background colour of the cell - green +ve, red -ve
+    var bgLightness = Math.round(Math.abs(v*255)).toString();
+    var bgColor = v < 0 ? `rgb(${bgLightness}, 0, 0)` : `rgb(0, ${bgLightness}, 0)`;
+    this.displayCell.style.backgroundColor = bgColor;
+  }
+
+  constructor() {
+    // Used to pass this down to inner functions etc.
+    var _convolutionMatrixElement = this;
+    // pseudo-private property; the value of the matrix element
+    this._value;
+    // the table cell in which the value is displayed and can be edited
+    this.displayCell = document.createElement('td');
+    this.displayCell.innerInput = this.displayCell.appendChild(document.createElement('input'));
+    this.displayCell.innerInput.type = 'number';
+    this.displayCell.innerInput.step = '0.01';
+    this.displayCell.innerInput.onchange = function() {_convolutionMatrixElement.value = Number(this.value);};
+    this.displayCell.innerInput.style.width = '12em';
+    this.displayCell.innerInput.style.visibility = 'hidden';
+    this.displayCell.onmouseover = function() {this.innerInput.style.visibility = 'visible'};
+    this.displayCell.onmouseout = function() {this.innerInput.style.visibility = 'hidden'};
+  }
+
+}
+
 // class defining convolution matrices
 class ConvolutionMatrix {
   // Takes the "radius" of the matrix in each dimension as parameter, i.e. the number of
@@ -103,6 +137,9 @@ class ConvolutionMatrix {
     this.matrixElement = new Array(this.sizeX);
     for(var x = 0; x < this.sizeX; x++) {
       this.matrixElement[x] = new Array(this.sizeY);
+      for(var y = 0; y < this.sizeY; y++) {
+        this.matrixElement[x][y] = new ConvolutionMatrixElement();
+      }
     }
 
     // Convolution Matrix control sub-panel
@@ -119,7 +156,7 @@ class ConvolutionMatrix {
       this.controlPanel.displayTable.body.row[y] = document.createElement('tr');
       this.controlPanel.displayTable.body.row[y].cell = new Array(this.sizeX);
       for(var x = 0; x < this.sizeX; x++) {
-        this.controlPanel.displayTable.body.row[y].cell[x] = document.createElement('td');
+        this.controlPanel.displayTable.body.row[y].cell[x] = this.matrixElement[x][y].displayCell;
         this.controlPanel.displayTable.body.row[y].appendChild(this.controlPanel.displayTable.body.row[y].cell[x]);
       }
       this.controlPanel.displayTable.body.appendChild(this.controlPanel.displayTable.body.row[y]);
@@ -131,35 +168,22 @@ class ConvolutionMatrix {
     // Add the Randomise button
     this.controlPanel.randomiseConvolutionMatrixButton = this.controlPanel.addButton('Randomise Convolution <u>M</u>atrix', function() {_convolutionMatrix.randomise();});
 
-    // method to refresh the values in the display table
-    this.controlPanel.displayTable.refresh = function() {
-      for(var y = 0; y < this.sizeY; y++) {
-        for(var x = 0; x < this.sizeX; x++) {
-          // if the value is not negative, add a non-breaking space to left-pad the cell content 
-          var paddingSpace = this.matrixElement[x][y] < 0 ? '' : '\xa0';
-          this.body.row[y].cell[x].innerText = paddingSpace + this.matrixElement[x][y].toString();
-        }
-      }
-    }
-
   } // end of ConvolutionMatrix constructor function
-  
-  // Method: sets the value of a particular matrix element and updates the display for that element only
-  setMatrixElement(x, y, value) {
-    // TODO add some input validation?
-    this.matrixElement[x][y] = value;
-    this.controlPanel.displayTable.body.row[y].cell[x].innerText = value;
-    // set the background colour of the cell - green +ve, red -ve
-    var bgLightness = Math.round(Math.abs(value*255)).toString();
-    var bgColor = value < 0 ? `rgb(${bgLightness}, 0, 0)` : `rgb(0, ${bgLightness}, 0)`;
-    this.controlPanel.displayTable.body.row[y].cell[x].style.backgroundColor = bgColor;
-  }
 
   // Method: randomises the matrix values to values in the range [-1, 1)
   randomise() {
     for(var mY = 0; mY < this.sizeY; mY++) {
       for(var mX = 0; mX < this.sizeX; mX++) {
-        this.setMatrixElement(mX, mY, 2*Math.random() - 1);
+        this.matrixElement[mX][mY].value = 2*Math.random() - 1;
+      }
+    }
+  }
+
+  // Method: sets all matrix values to zero
+  zero() {
+    for(var mY = 0; mY < this.sizeY; mY++) {
+      for(var mX = 0; mX < this.sizeX; mX++) {
+        this.matrixElement[mX][mY].value = 0;
       }
     }
   }
@@ -169,7 +193,7 @@ class ConvolutionMatrix {
     var _sum = 0;
     for(var mY = 0; mY < this.sizeY; mY++) {
       for(var mX = 0; mX < this.sizeX; mX++) {
-        _sum += this.matrixElement[mX][mY];
+        _sum += this.matrixElement[mX][mY].value;
       }
     }    
     return _sum;
@@ -186,7 +210,7 @@ class ConvolutionMatrix {
     var _absSum = 0;
     for(var mY = 0; mY < this.sizeY; mY++) {
       for(var mX = 0; mX < this.sizeX; mX++) {
-        _absSum += Math.abs(this.matrixElement[mX][mY]);
+        _absSum += Math.abs(this.matrixElement[mX][mY].value);
       }
     }    
     return _absSum;
@@ -197,7 +221,7 @@ class ConvolutionMatrix {
     var _sumOfSquares = 0;
     for(var mY = 0; mY < this.sizeY; mY++) {
       for(var mX = 0; mX < this.sizeX; mX++) {
-        _sumOfSquares += this.matrixElement[mX][mY] ** 2;
+        _sumOfSquares += this.matrixElement[mX][mY].value ** 2;
       }
     }
     return Math.sqrt(_sumOfSquares / (this.sizeY * this.sizeY));
@@ -362,12 +386,12 @@ class CellularAutomaton {
 
   // read the UI value of parameter "coefficient p", used in the post-convolution function
   readCoefficientPInput() {
-    this._coefficientP = this.controlPanel.coefficientPInput.value;
+    this._coefficientP = this.controlPanel.postConvolutionFunction.coefficientPInput.value;
   }
 
   // read the UI value of parameter "offset k", used in the post-convolution function
   readOffsetKInput() {
-    this._offsetK = this.controlPanel.offsetKInput.value;
+    this._offsetK = this.controlPanel.postConvolutionFunction.offsetKInput.value;
   }
   
   // getter that retrieves the value of the psuedo-private property _coefficientP
@@ -378,7 +402,7 @@ class CellularAutomaton {
   // set the value of parameter "coefficient p", used in the post-convolution function, and
   // update its value in the UI
   set coefficientP(p) {
-    this.controlPanel.coefficientPInput.value = p;
+    this.controlPanel.postConvolutionFunction.coefficientPInput.value = p;
     this._coefficientP = p;
   }
 
@@ -388,7 +412,7 @@ class CellularAutomaton {
   // set the value of parameter "offset k", used in the post-convolution function, and
   // update its value in the UI
   set offsetK(k) {
-    this.controlPanel.offsetKInput.value = k;
+    this.controlPanel.postConvolutionFunction.offsetKInput.value = k;
     this._offsetK = k;
   }
 
@@ -472,7 +496,13 @@ class CellularAutomaton {
     // ****************************************************************************************************
 
     // Calculate P normalised for the current matrix.
-    this.normalisedP = this.coefficientP * this.convolutionMatrix.rms;
+    // TODO make the normalisation method selectable (and optional)
+    this.normalisedP = this.coefficientP;
+//    this.normalisedP = this.coefficientP * this.convolutionMatrix.sum;
+//    this.normalisedP = this.coefficientP * this.convolutionMatrix.rms;
+//    this.normalisedP = this.coefficientP * this.convolutionMatrix.rms + this.convolutionMatrix.sign;
+//    this.normalisedP = this.coefficientP * this.convolutionMatrix.absSum;
+//    this.normalisedP = this.coefficientP * this.convolutionMatrix.absSum + this.convolutionMatrix.sign;
 
     // set up a canvas to draw on.
     this.canvas = document.createElement('canvas');
@@ -558,6 +588,8 @@ class CellularAutomaton {
 
     // use the following to pass the parent object to functions etc.
     var _cellularAutomaton = this;
+    // a utility variable used when constructing the HTML DOM
+    var workingHTMLElement;
 
     // addButton() method
     // buttonHTML (string) : the innerHTML of the button
@@ -580,8 +612,6 @@ class CellularAutomaton {
 
     // Create the parameter entry section of the control panel
     this.controlPanel.parameters = document.createElement('div');
-    this.controlPanel.coefficientPInput = this.controlPanel.addNumberInput("coefficient-p", "p =", function() {_cellularAutomaton._coefficientP = this.value;}, 0.01, this.controlPanel.parameters);
-    this.controlPanel.offsetKInput = this.controlPanel.addNumberInput("offset-k", "k =", function() {_cellularAutomaton._offsetK = this.value;}, 0.01, this.controlPanel.parameters);
     this.controlPanel.randomiseGridButton = this.controlPanel.addButton('Randomise <u>G</u>rid', function() {_cellularAutomaton.randomiseGrid()}, this.controlPanel.parameters);
     this.controlPanel.appendChild(this.controlPanel.parameters);
 
@@ -592,14 +622,17 @@ class CellularAutomaton {
     this.controlPanel.convolutionMatrix = this.controlPanel.appendChild(this.convolutionMatrix.controlPanel);
 
     // Add the post-convolution function selector
-    this.controlPanel.postConvolutionSelector = document.createElement('div');
+    this.controlPanel.postConvolutionFunction = document.createElement('div');
     // Label for the selector input
+    workingHTMLElement = this.controlPanel.postConvolutionFunction.appendChild(document.createElement('p'));
     var selectorLabel = document.createElement('label');
     selectorLabel.htmlFor = 'post-convolution-function-selector';
-    selectorLabel.innerText = 'Post-convolution function:';
-    this.controlPanel.postConvolutionSelector.appendChild(selectorLabel);
+    selectorLabel.innerText = 'Post-convolution function';
+    workingHTMLElement.appendChild(selectorLabel);
+    this.controlPanel.postConvolutionFunction.appendChild(workingHTMLElement);
     // The selector dropdown input
-    var selector = this.controlPanel.postConvolutionSelector.appendChild(document.createElement('select'));
+    workingHTMLElement = this.controlPanel.postConvolutionFunction.appendChild(document.createElement('p'));
+    var selector = this.controlPanel.postConvolutionFunction.appendChild(document.createElement('select'));
     selector.id = 'post-convolution-function-selector';
     this.postConvolutionFunctionOption.forEach(function(option) {
       var HTMLOption = document.createElement('option');
@@ -608,9 +641,15 @@ class CellularAutomaton {
       // TODO: HTMLOption.onselect = function() { change selectedPostConvolutionFunction to selection }
       selector.add(HTMLOption);
     })
-    this.controlPanel.postConvolutionSelector.appendChild(selector);
-    // Add the selector section to the control panel
-    this.controlPanel.appendChild(this.controlPanel.postConvolutionSelector);
+    workingHTMLElement.appendChild(selector);
+    this.controlPanel.postConvolutionFunction.appendChild(workingHTMLElement);
+    // postConvolutionFunction parameter inputs
+    workingHTMLElement = this.controlPanel.postConvolutionFunction.appendChild(document.createElement('p'));
+    this.controlPanel.postConvolutionFunction.coefficientPInput = this.controlPanel.addNumberInput("coefficient-p", "p =", function() {_cellularAutomaton._coefficientP = this.value;}, 0.01, workingHTMLElement);
+    this.controlPanel.postConvolutionFunction.offsetKInput = this.controlPanel.addNumberInput("offset-k", "k =", function() {_cellularAutomaton._offsetK = this.value;}, 0.01, workingHTMLElement);
+    this.controlPanel.postConvolutionFunction.appendChild(workingHTMLElement);
+    // Add the postConvolutionFunction control panel to the main control panel    
+    this.controlPanel.appendChild(this.controlPanel.postConvolutionFunction);
 
     // set up keyboard shortcuts
     window.onkeydown = function(e) {
@@ -625,10 +664,11 @@ class CellularAutomaton {
             }
           break;
           case "m": case "M": _cellularAutomaton.convolutionMatrix.randomise(); break;
+          case "z": case "Z": _cellularAutomaton.convolutionMatrix.zero(); break;
           case "g": case "G": _cellularAutomaton.randomiseGrid(); break;
-          case "p": case "P": _cellularAutomaton.controlPanel.coefficientPInput.focus(); break;
+          case "p": case "P": _cellularAutomaton.controlPanel.postConvolutionFunction.coefficientPInput.focus(); break;
           case "i": case "I": _cellularAutomaton.coefficientP *= -1; break;
-          case "k": case "K": _cellularAutomaton.controlPanel.offsetKInput.focus(); break;
+          case "k": case "K": _cellularAutomaton.controlPanel.postConvolutionFunction.offsetKInput.focus(); break;
           case "h": case "H": _cellularAutomaton.color.controlPanel.hueAtZeroInput.focus(); break;
           case "s": case "S": _cellularAutomaton.color.controlPanel.saturationAtZeroInput.focus(); break;
           case "l": case "L": _cellularAutomaton.color.controlPanel.lightnessAtZeroInput.focus(); break;
@@ -699,7 +739,7 @@ class CellularAutomaton {
           for(var matrixX = 0; matrixX < this.convolutionMatrix.sizeX; matrixX++) {
             var x = (gridX - this.convolutionMatrix.radiusX + matrixX + 1 + this.gridSizeX) % this.gridSizeX;
             var y = (gridY - this.convolutionMatrix.radiusY + matrixY + 1 + this.gridSizeY) % this.gridSizeY;
-            cumulativeTotal += this.convolutionMatrix.matrixElement[matrixX][matrixY]*this.currentReferenceStep.cell[x][y];
+            cumulativeTotal += this.convolutionMatrix.matrixElement[matrixX][matrixY].value*this.currentReferenceStep.cell[x][y];
           }
         }
         // pass the result of the matrix convolution through the post-convolution function

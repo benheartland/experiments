@@ -69,17 +69,21 @@ table {
 }
 
 .cellular-automaton-control-panel .convolution-matrix-display-table {
-  font-size: 0.6rem;
+  cursor: default;
   table-layout: fixed;
   width: min-content;
   margin-bottom: 0.5em;
 }
 
 .cellular-automaton-control-panel .convolution-matrix-display-table td {
-  overflow: hidden;
   white-space: nowrap;
-  width: 2.5em;
-  height: 2.5em; 
+  width: 1em;
+  height: 1em; 
   padding: 0.5em;
-  border: 1px solid black;
+  border: 1px solid grey;
+}
+
+.cellular-automaton-control-panel .convolution-matrix-display-table td>input {
+  margin: 0;
+  padding: 0;
 }
