@@ -75,7 +75,7 @@ function onLoad() {
 		var newValue = this.value;
 		// validate input and change as appropriate
 		if(!Number.isNaN(newValue) && newValue >= 0 && newValue <= MAX_MASTER_VOLUME) {
-			this.masterVolume.setValueAtTime(newValue/MAX_MASTER_VOLUME, audioCtx.currentTime);
+			audioCtx.masterVolume.setValueAtTime(newValue/MAX_MASTER_VOLUME, audioCtx.currentTime);
 		} else {
 			this.value = oldValue * MAX_MASTER_VOLUME;
 		}

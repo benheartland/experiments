@@ -85,7 +85,6 @@ th, td {
 .cellular-automaton-control-panel .convolution-matrix .convolution-matrix-display-table td {
   width: 1em;
   height: 1em; 
-  padding: 0.5em;
 }
 
 .cellular-automaton-control-panel .convolution-matrix .convolution-matrix-display-table td>input {
