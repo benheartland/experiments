@@ -1,8 +1,20 @@
-// Define the "world" in which the model will take place
-var world = new Object();
-world.width = 1000.0;
-world.height = 1000.0;
-world.turn = 0;
+// Define a class of "worlds" in which the model will take place
+class World {
+  constructor(_width, _height) {
+    this.width = _width;
+    this.height = _height;
+    // The number of turns (time units) that have passed in the world
+    this.turn = 0;
+    // This will hold the individuals who populate the world
+    this.individual = new Array();
+  }
+
+  // METHODS
+  addIndividual() {
+    this.individual.push(new Individual(this, this.individual.length));
+  }
+
+}
 
 // Class for describing a virus
 class Virus {
@@ -48,20 +60,48 @@ const BEHAVIOURS = {
 class Individual {
 
   // constructor function
-  constructor() {
+  constructor(_world, _id) {
+    //backreference to the world to which this individual belongs
+    this.world = _world;
+    this.id = _id;
     // start with the individual alive and unifected
     this.alive = true;
-    this.diedOnTurn = -1;
+    this.immune = false;
+    this.diedOnTurn = null;
     this.infected = false;
-    this.infectedOnTurn = -1;
+    this.infectedOnTurn = null;
+    this.infectedBy = null;
     // pick a random position within the world
-    this.position.x = Math.random() * world.width;
-    this.position.y = Math.random() * world.height;
-    // 
+    this.positionX = Math.random() * this.world.width;
+    this.positionY = Math.random() * this.world.height;
+    // what kind of behaviour will it have?
     this.behaviour = Behaviour.getRandomBehaviour();
-    this.label = this.behaviour.label;
+    // speed and (initial) direction
     this.speed = this.behaviour.randomSpeed;
     this.direction = Math.random() * 2*Math.PI;
+  }
+
+  get icon() {
+    // dead => skull and crossbones
+    if(!this.alive) return '\u2620';
+    // infected => face with thermometer
+    if(this.infected) return '\u{1F912}';
+    // otherwise smiley face
+    return '\u{1F642}'
+  }
+
+  get svg() {
+    var _svg = document.createElement('svg');
+    _svg.classList.add('individual');
+    _svg.id = this.id;
+    // positioning
+    _svg.style.position = 'absolute';
+    _svg.style.left = this.position.x/this.world.width + '%';
+    _svg.style.right = this.position.y/this.world.height + '%';
+    // content
+    var _text = document.createElement('text');
+    _text.innerText = this.icon;
+    _svg.appendChild(_text);
   }
 
   // METHODS
@@ -76,8 +116,9 @@ class Individual {
     this.speed = 0;
     // dead individuals can't infect others
     this.infected = false;
-    // set label to a skull and crossbones
-    this.label = '\u2620';
   }
 
 }
+
+// create an instance of a world
+var world = new World();

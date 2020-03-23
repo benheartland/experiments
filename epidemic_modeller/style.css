@@ -1,5 +1,12 @@
 body {
   background: black;
   color: white;
+  font: monospace;
 }
 
+.individual {
+  width: 1%;
+  height: 1%;
+  border: 1px solid white;
+  font-size: 100%;
+}
