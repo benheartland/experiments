@@ -12,7 +12,10 @@ class World {
     // draw the diplay for the world
     this.display = document.createElement('div');
     this.display.classList.add('world');
-    this.display.id = _id;
+    this.display.id = 'world-' + _id;
+    this.display.inner = document.createElement('div');
+    this.display.inner.classList.add('inner');
+    this.display.appendChild(this.display.inner);
     document.body.appendChild(this.display);
     // populate the world with individuals
     this.individual = new Array(_individualCount);
@@ -145,8 +148,8 @@ class Individual {
     // speed and (initial) direction
     this.speed = this.behaviour.randomSpeed;
     this.direction = Math.random() * 2*Math.PI;
-    // add the 
-    this.parentWorld.display.appendChild(this.svg);
+    // add the individual to the world display
+    this.parentWorld.display.inner.appendChild(this.svg);
   }
 
   get icon() {
@@ -163,6 +166,7 @@ class Individual {
     _svg.classList.add('individual');
     _svg.id = this.id;
     _svg.style.borderColor = this.infected ? 'red' : 'green';
+    _svg.style.backgroundColor = this.infected ? 'rgba(255,0,0,0.2)' : 'rgba(0,255,0,0.2)';
     // positioning
     _svg.style.position = 'absolute';
     _svg.style.left = 100*this.position.x/this.parentWorld.width + '%';
