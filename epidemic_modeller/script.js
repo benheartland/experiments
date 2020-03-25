@@ -10,13 +10,28 @@ class World {
     this.flipperOn = 0;
     this.flipperOff = 1;
     // draw the diplay for the world
-    this.display = document.createElement('div');
-    this.display.classList.add('world');
+    this.display = document.createElement('svg');
     this.display.id = 'world-' + _id;
-    this.display.inner = document.createElement('div');
+    this.display.classList.add('world');
+    this.display.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    this.display.setAttribute('viewBox', '0 0 100 100');
+    this.display.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    this.display.setAttribute('width', '100%');
+    this.display.setAttribute('height', '100%');
+    //
+    this.display.inner = document.createElement('rect');
     this.display.inner.classList.add('inner');
+    this.display.inner.setAttribute('x', '0');
+    this.display.inner.setAttribute('y', '0');
+    this.display.inner.setAttribute('width', '100%');
+    this.display.inner.setAttribute('height', '100%');
+    this.display.inner.setAttribute('stroke', 'white');
+    this.display.inner.setAttribute('fill', 'none');
+//    this.display.inner.setAttribute('rx', '5');
+
+//    this.display.inner.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     this.display.appendChild(this.display.inner);
-    document.body.appendChild(this.display);
+    document.getElementById('main').appendChild(this.display);
     // populate the world with individuals
     this.individual = new Array(_individualCount);
     for(var i=0; i<_individualCount; i++) {
@@ -149,7 +164,8 @@ class Individual {
     this.speed = this.behaviour.randomSpeed;
     this.direction = Math.random() * 2*Math.PI;
     // add the individual to the world display
-    this.parentWorld.display.inner.appendChild(this.svg);
+    this.parentWorld.display.appendChild(this.svg);
+//    this.svg.center(this.position.x, this.position.y);
   }
 
   get icon() {
@@ -163,14 +179,20 @@ class Individual {
 
   get svg() {
     var _svg = document.createElement('svg');
-    _svg.classList.add('individual');
     _svg.id = this.id;
-    _svg.style.borderColor = this.infected ? 'red' : 'green';
-    _svg.style.backgroundColor = this.infected ? 'rgba(255,0,0,0.2)' : 'rgba(0,255,0,0.2)';
+    _svg.classList.add('individual');
+    _svg.setAttribute('width', '10%');
+    _svg.setAttribute('height', '10%');
+    //
+    var _circle = document.createElement('circle');
+    _circle.setAttribute('cx', '50%');
+    _circle.setAttribute('cy', '50%');
+    _circle.setAttribute('r', '50%');
+    _circle.setAttribute('stroke', this.infected ? 'red' : 'green');
+    _svg.appendChild(_circle);
     // positioning
-    _svg.style.position = 'absolute';
-    _svg.style.left = 100*this.position.x/this.parentWorld.width + '%';
-    _svg.style.top = 100*this.position.y/this.parentWorld.height + '%';
+    _svg.setAttribute( 'x', (100*this.position.x/this.parentWorld.width).toString() );
+    _svg.setAttribute( 'y', (100*this.position.y/this.parentWorld.height).toString() );
     // content
     var _text = document.createElement('text');
     _text.innerText = this.icon;

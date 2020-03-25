@@ -1,36 +1,20 @@
+html, body, div#main, svg.world {
+  height: 100%;
+  width: 100%;
+}
+
 body {
   background: black;
   color: white;
-  padding: 0;
   margin: 0;
+  padding: 10px;
   font-family: monospace;
 }
 
-.world {
-  position: relative;
-  width: 500px;
-  height: 500px;
+#main {
   border: 1px solid white;
-  border-radius: 5px; 
-  margin: 10px;
-  padding-right: 20px;
-  padding-bottom: 20px;
 }
 
-.world>.inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-
-.individual {
-  border: 1px solid;
-  border-radius: 50%;
-  font-size: 100%;
-}
-
-.individual>text {
-  position: relative;
-  top: -0.75px;
+text {
+  font-family: monospace;
 }
