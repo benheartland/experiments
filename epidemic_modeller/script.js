@@ -1,6 +1,7 @@
 // Define a class of "worlds" in which the model will take place
 class World {
   constructor(_id, _width, _height, _individualCount) {
+    this.id = 'world-' + _id;
     this.width = _width;
     this.height = _height;
     // The number of turns (time units) that have passed in the world
@@ -9,34 +10,18 @@ class World {
     // element of the position array is current.
     this.flipperOn = 0;
     this.flipperOff = 1;
+ 
     // draw the diplay for the world
-    this.display = document.createElement('svg');
-    this.display.id = 'world-' + _id;
-    this.display.classList.add('world');
-    this.display.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    this.display.setAttribute('viewBox', '0 0 100 100');
-    this.display.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-    this.display.setAttribute('width', '100%');
-    this.display.setAttribute('height', '100%');
-    //
-    this.display.inner = document.createElement('rect');
-    this.display.inner.classList.add('inner');
-    this.display.inner.setAttribute('x', '0');
-    this.display.inner.setAttribute('y', '0');
-    this.display.inner.setAttribute('width', '100%');
-    this.display.inner.setAttribute('height', '100%');
-    this.display.inner.setAttribute('stroke', 'white');
-    this.display.inner.setAttribute('fill', 'none');
-//    this.display.inner.setAttribute('rx', '5');
-
-//    this.display.inner.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-    this.display.appendChild(this.display.inner);
-    document.getElementById('main').appendChild(this.display);
+    this.display = World.templateDisplay.cloneNode(true);
+    this.display.id = this.id;
+    // add the display SVG
+    document.body.appendChild(this.display);
+ 
     // populate the world with individuals
-    this.individual = new Array(_individualCount);
+    this.individual = new Array();
     for(var i=0; i<_individualCount; i++) {
-      this.individual[i] = new Individual(this, 'individual-' + i);
-    }    
+      this.addIndividual(i);
+    }
   }
 
   advanceOneTurn() {
@@ -47,8 +32,8 @@ class World {
   }
 
   // METHODS
-  addIndividual() {
-    this.individual.push(new Individual(this, this.individual.length));
+  addIndividual(i) {
+    this.individual.push( new Individual( this, this.individual.length, (i==0) ? true : false ) );
   }
 
 }
@@ -143,17 +128,20 @@ class Position {
 class Individual {
 
   // constructor function
-  constructor(_world, _id) {
+  constructor(_world, _id, _infected = false) {
     //backreference to the world to which this individual belongs
     this.parentWorld = _world;
-    this.id = _id;
-    // start with the individual alive and unifected
+    this.id = _world.id + '-individual-' + _id;
+    // start with the individual alive and uninfected
     this.alive = true;
     this.immune = false;
     this.diedOnTurn = null;
-    this.infected = false;
+    this.infected = _infected; // default: false
     this.infectedOnTurn = null;
     this.infectedBy = null;
+    // they also have infected or killed any others
+    this.infectedCount = 0;
+    this.deathCount = 0;
     // pick a random position within the world
     this.position = new Position(this);
     // what kind of behaviour will it have?
@@ -163,9 +151,18 @@ class Individual {
     // speed and (initial) direction
     this.speed = this.behaviour.randomSpeed;
     this.direction = Math.random() * 2*Math.PI;
+    // clone the class's template SVG to this individual
+    this.glyph = Individual.templateGlyph.cloneNode(true);
+    this.glyph.id = this.id;
+    // set up some accessors for the bits we'll need to change
+    this.glyph.backgroundCircle = this.glyph.getElementsByClassName('individual-background-circle').item(0);
+    this.glyph.iconTextElement = this.glyph.getElementsByClassName('individual-icon').item(0);
+    this.glyph.labelTextElement = this.glyph.getElementsByClassName('individual-label').item(0);
+    this.glyph.infectedCountTextElement = this.glyph.getElementsByClassName('individual-infected-count').item(0);
+    this.glyph.deathCountTextElement = this.glyph.getElementsByClassName('individual-death-count').item(0);
     // add the individual to the world display
-    this.parentWorld.display.appendChild(this.svg);
-//    this.svg.center(this.position.x, this.position.y);
+    this.parentWorld.display.appendChild(this.glyph);
+    this.redraw();
   }
 
   get icon() {
@@ -177,30 +174,19 @@ class Individual {
     return '\u{1F642}'
   }
 
-  get svg() {
-    var _svg = document.createElement('svg');
-    _svg.id = this.id;
-    _svg.classList.add('individual');
-    _svg.setAttribute('width', '10%');
-    _svg.setAttribute('height', '10%');
-    //
-    var _circle = document.createElement('circle');
-    _circle.setAttribute('cx', '50%');
-    _circle.setAttribute('cy', '50%');
-    _circle.setAttribute('r', '50%');
-    _circle.setAttribute('stroke', this.infected ? 'red' : 'green');
-    _svg.appendChild(_circle);
-    // positioning
-    _svg.setAttribute( 'x', (100*this.position.x/this.parentWorld.width).toString() );
-    _svg.setAttribute( 'y', (100*this.position.y/this.parentWorld.height).toString() );
-    // content
-    var _text = document.createElement('text');
-    _text.innerText = this.icon;
-    _svg.appendChild(_text);
-    return _svg;
-  }
-
   // METHODS
+
+  redraw() {
+    var _bgColor = this.infected ? 'red' : 'green';
+    this.glyph.backgroundCircle.setAttribute('stroke', _bgColor);
+    this.glyph.backgroundCircle.setAttribute('fill', _bgColor);
+    this.glyph.iconTextElement.innerHTML = this.icon;
+    this.glyph.labelTextElement.innerHTML = this.behaviour.label;
+    this.glyph.infectedCountTextElement.innerHTML = this.infectedCount;
+    this.glyph.deathCountTextElement.innerHTML = this.deathCount;
+    this.glyph.setAttribute('x', this.position.x);
+    this.glyph.setAttribute('y', this.position.y);
+  }
 
   // Infect another individual
   infect(otherIndividual) {otherIndividual.infected = true}
@@ -216,7 +202,18 @@ class Individual {
 
 }
 
+// Globals
+var world1;
+
 // create an instance of a world
 window.onload = function() {
-  var world = new World('the-world', 100, 100, 10);
+  // Clone the template of the SVG for an individual from the initial document, and add it as
+  // a static property of the Individual class.
+  Individual.templateGlyph = document.getElementById('template-individual').cloneNode(true);
+  document.getElementById('template-individual').remove();
+  // Do the same with the World
+  World.templateDisplay = document.getElementById('template-world').cloneNode(true);
+  document.getElementById('template-world').remove();
+  // create a new world with individuals populating it
+  world1 = new World('1', 100, 100, 10);
 }

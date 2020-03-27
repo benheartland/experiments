@@ -1,6 +1,8 @@
 html, body, div#main, svg.world {
   height: 100%;
   width: 100%;
+  padding: 0;
+  margin: 0;
 }
 
 body {
@@ -8,6 +10,8 @@ body {
   color: white;
   margin: 0;
   padding: 10px;
+  width: auto;
+  height: auto;
   font-family: monospace;
 }
 
