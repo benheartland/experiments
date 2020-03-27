@@ -25,10 +25,19 @@ class World {
   }
 
   advanceOneTurn() {
+    // calculate the next state of the world (and things in it)
+    this.individual.forEach(function(i) {
+      i.position.calculateNextPosition();
+    });
+    // increment the turn count
     this.turn++;
+    // flip the flipper
     this.flipperOn = this.flipperOff;
     this.flipperOff = 1 - this.flipperOff;
-    // TODO update things in the world
+    // redraw things in the world
+    this.individual.forEach(function(i) {
+      i.redraw();
+    });
   }
 
   // METHODS
@@ -215,5 +224,5 @@ window.onload = function() {
   World.templateDisplay = document.getElementById('template-world').cloneNode(true);
   document.getElementById('template-world').remove();
   // create a new world with individuals populating it
-  world1 = new World('1', 100, 100, 10);
+  document.world1 = new World('1', 100, 100, 10);
 }
