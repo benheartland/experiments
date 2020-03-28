@@ -15,9 +15,14 @@ body {
   font-family: monospace;
 }
 
-#main {
-  border: 1px solid white;
+#templates {
+  display: none;
 }
+
+#templates * {
+  display: inherit;
+}
+
 
 text {
   font-family: monospace;

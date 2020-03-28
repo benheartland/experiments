@@ -6,18 +6,20 @@
     <script src="script.js"></script>
   </head>
   <body>
-    <svg id="template-world" width="100%" height="100%" viewBox="0 0 110 110">
+    <div id="templates">
+
+      <svg id="template-world" width="100%" height="100%" viewBox="0 0 110 110"></svg>
 
       <svg id="template-individual" x="50" y="50" width="10" height="10" viewBox="-50 -50 100 100">
         <circle class="individual-background-circle" cx="0" cy="0" r="49" stroke-width="1" stroke="green" fill="green" fill-opacity="0.25"/>
         <text class="individual-icon" dominant-baseline="central" text-anchor="middle" x="0" y="0" style="font-size: 40;" fill="white">🙂</text>
         <text class="individual-label" dominant-baseline="central" text-anchor="end" x="-25" y="0" style="font-size: 25;" fill="white">X</text>
-        <text class="individual-infected-count" dominant-baseline="central" text-anchor="end" x="43" y="-10" style="font-size: 18;" fill="white">00</text>
-        <text class="individual-death-count" dominant-baseline="central" text-anchor="end" x="43" y="10" style="font-size: 18;" fill="white">00</text>
+        <text class="individual-infected-count" dominant-baseline="central" text-anchor="end" x="43" y="-10" style="font-size: 18;" fill="white">0</text>
+        <text class="individual-death-count" dominant-baseline="central" text-anchor="end" x="43" y="10" style="font-size: 18;" fill="white">0</text>
         <!--<path d="M-50,0 L50,0 M0,-50 L0,50" stroke="white" />-->
       </svg>
-  
-    </svg>
+
+    </div>
 
   </body>
 </html>

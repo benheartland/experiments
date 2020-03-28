@@ -65,11 +65,12 @@ class Behaviour {
     return Object.values(BEHAVIOURS)[Math.floor( Math.random() * Object.keys(BEHAVIOURS).length )];
   }
 
-  constructor(_label, _minSpeed, _maxSpeed, _sociability) {
+  constructor(_label, _minSpeed, _maxSpeed, _sociability, _directionFunction) {
     this.label = _label;
     this.minSpeed = _minSpeed;
     this.maxSpeed = _maxSpeed;
     this.sociability = _sociability;
+    this.directionFunction = _directionFunction;
   }
 
   // get a random speed between minSpeed and maxSpeed
@@ -79,12 +80,78 @@ class Behaviour {
 
 }
 
+function socialBasedDirectionFunction(_object) {
+  // 
+  var _cumulativeX = 0;
+  var _cumulativeY = 0;
+  // Cycle through the array of the individuals in the parent world
+  _object.parentWorld.individual.forEach(function(i) {
+    // ignore _object among the individuals; we are only interested in *other* individuals
+    if(i != _object) {
+      // work out the vector and squared absolute distance between the objects
+      var _dx = i.position.x - _object.position.x;
+      var _dy = i.position.y - _object.position.y;
+      var _d2 = _dx*_dx + _dy*_dy;
+      // use an inverse square distance law to work out how much each individual influences the object
+      if(_d2 > 0) {
+        _cumulativeX += _dx / _d2;
+        _cumulativeY += _dy / _d2;  
+      }
+    }
+  });
+  // multiply by the object's sociability factor: negative values are anti-social
+  _cumulativeX *= _object.behaviour.sociability;
+  _cumulativeY *= _object.behaviour.sociability;
+  if (_cumulativeX == 0) {
+    return Math.PI/2* Math.sign(_cumulativeY);
+  }
+  else {
+    return Math.atan(_cumulativeY/_cumulativeX) + (Math.sign(_cumulativeX) < 0 ? Math.PI : 0);
+  }
+}
+
 // Enumerate the different behaviours
 const BEHAVIOURS = {
-  stayPut: new Behaviour('P',0,0,0),
-  wanderer: new Behaviour('W',2,3,0),
-  distancer: new Behaviour('D',2,3,-1),
-  socialiser: new Behaviour('S',2,3,1)
+  // StayPut: doesn't move
+  stayPut: new Behaviour('P',0,0,0, function(_object) {
+    // direction is irrelevant for a stayPut, so just return the current value unchanged
+    return _object.direction;
+  }),
+
+  // Wanderer: wanders around uninfluenced by other individuals
+  wanderer: new Behaviour('W',2,3,0, function(_object) {
+    // wanderers travel in a straight line until they hit the edge of the world
+    var _direction = _object.direction;
+    // if the next move would take the object off the edge of the world, we need to
+    // choose a new direction that points back into the world
+    var _x = _object.position.x;
+    var _y = _object.position.y;
+    if (_x == 0) {
+      // if the object is in a corner we can simply point it back inside
+      if (_y == 0) {_direction = Math.random()*Math.PI/2}
+      else if (_y == _object.parentWorld.height) {_direction = Math.random()*Math.PI/2 - Math.PI/2}
+      // otherwise we must check the direction
+      else if (Math.cos(_direction) < 0) {_direction = Math.random()*Math.PI - Math.PI/2}
+    }
+    else if (_x == _object.parentWorld.width) {
+      // if the object is in a corner we can simply point it back inside
+      if (_y == 0) {_direction = Math.random()*Math.PI/2 + Math.PI/2}
+      else if (_y == _object.parentWorld.height) {_direction = Math.random()*Math.PI/2 - Math.PI}
+      // otherwise we must check the direction
+      else if (Math.cos(_direction) > 0) {_direction = Math.random()*Math.PI + Math.PI/2}
+    }
+    // we have already checked corners, so it is sufficient to check top and bottom edges
+    else if (_y == 0 && Math.sin(_direction) < 0) {_direction = Math.random()*Math.PI}
+    else if (_y == _object.parentWorld.height && Math.sin(_direction) > 0) {_direction = Math.random()*Math.PI - Math.PI}
+    // return the result
+    return _direction;
+  }),
+
+  // Distancer: gets as far away as possible from others
+  distancer: new Behaviour('D',2,3,-1, socialBasedDirectionFunction),
+
+  // Socialiser: goes towards others
+  socialiser: new Behaviour('S',2,3,1, socialBasedDirectionFunction)
 }
 
 class Position {
@@ -95,7 +162,7 @@ class Position {
     // one for position on the next turn
     this.coordinate = new Array(2);
     this.coordinate.fill([0,0]);
-    // set a random starting position within the world. Uses the setter below.
+    // set a random starting position within the world. Uses the setters below.
     this.x = Math.random() * this.parent.parentWorld.width;
     this.y = Math.random() * this.parent.parentWorld.height;
   }
@@ -126,9 +193,17 @@ class Position {
 
   // calculate the parent object's position on the next turn
   calculateNextPosition() {
-    // TODO
-    this.nextX = this.x + this.parent.speed * Math.sin(this.parent.direction);
-    this.nextY = this.y + this.parent.speed * Math.cos(this.parent.direction);
+    // work out the  parent object's direction based on current state
+    this.parent.direction = this.parent.behaviour.directionFunction(this.parent);
+
+    // calculate the next position based on the parent object's current speed and direction
+    var _x = this.x + this.parent.speed * Math.cos(this.parent.direction);
+    var _y = this.y + this.parent.speed * Math.sin(this.parent.direction);
+
+    // check for positions outside the bounds of the world and bring them back inside
+    this.nextX = Math.max(0, Math.min(this.parent.parentWorld.width, _x));
+    this.nextY = Math.max(0, Math.min(this.parent.parentWorld.width, _y));
+
   }
 
 }
@@ -209,6 +284,12 @@ class Individual {
     this.infected = false;
   }
 
+  getDistanceFrom(other) {
+    var dx = other.position.x - this.position.x;
+    var dy = other.position.y - this.position.y;
+    return Math.sqrt(dx^2 + dy^2);
+  }
+
 }
 
 // Globals
@@ -216,13 +297,23 @@ var world1;
 
 // create an instance of a world
 window.onload = function() {
-  // Clone the template of the SVG for an individual from the initial document, and add it as
-  // a static property of the Individual class.
-  Individual.templateGlyph = document.getElementById('template-individual').cloneNode(true);
-  document.getElementById('template-individual').remove();
-  // Do the same with the World
+  // Clone the template of the SVG for a from the initial document, and add it as
+  // a static property of the World class.
   World.templateDisplay = document.getElementById('template-world').cloneNode(true);
-  document.getElementById('template-world').remove();
+  // Do similar for the 'individual' template 
+  Individual.templateGlyph = document.getElementById('template-individual').cloneNode(true);
+  // Remove templates from the document. Not strictly necessary because the templates are not
+  // displayed but it keeps the DOM clean
+  document.getElementById('templates').remove();
+
   // create a new world with individuals populating it
   document.world1 = new World('1', 100, 100, 10);
+
+  // set up a space keypress to advance one turn
+  document.addEventListener("keydown", event => {
+    if (event.key == ' ') {
+      document.world1.advanceOneTurn();
+    }
+  });
+
 }
