@@ -27,7 +27,7 @@ class World {
   advanceOneTurn() {
     // calculate the next state of the world (and things in it)
     this.individual.forEach(function(i) {
-      i.position.calculateNextPosition();
+      i.calculateNextPosition();
     });
     // increment the turn count
     this.turn++;
@@ -80,28 +80,47 @@ class Behaviour {
 
 }
 
-function socialBasedDirectionFunction(_object) {
+function sociabilityBasedDirectionFunction(_object) {
   // 
   var _cumulativeX = 0;
   var _cumulativeY = 0;
+  var _sociability = _object.behaviour.sociability;
+  console.log(_object.id + ' : ' + _object.behaviour.label + ' : ' + _sociability)
   // Cycle through the array of the individuals in the parent world
-  _object.parentWorld.individual.forEach(function(i) {
+  _object.parentWorld.individual.forEach(function(_i) {
     // ignore _object among the individuals; we are only interested in *other* individuals
-    if(i != _object) {
-      // work out the vector and squared absolute distance between the objects
-      var _dx = i.position.x - _object.position.x;
-      var _dy = i.position.y - _object.position.y;
-      var _d2 = _dx*_dx + _dy*_dy;
-      // use an inverse square distance law to work out how much each individual influences the object
-      if(_d2 > 0) {
-        _cumulativeX += _dx / _d2;
-        _cumulativeY += _dy / _d2;  
+    if(_i != _object) {
+      // work out the vector and absolute distance between the two objects
+      var _dx = _i.position.x - _object.position.x;
+      var _dy = _i.position.y - _object.position.y;
+      var _dSquared = _dx*_dx + _dy*_dy;
+      // check whether _i should influence _object.
+      // social individuals should stop attracting once they are next to each other.
+      if( _sociability > 0 && _dSquared > Math.pow(_object.radius + _i.radius, 2) ) {
+        // use an inverse distance law to work out how much each individual influences the object
+        // N.B. dividing by _dSquared gives an inverse law, NOT an inverse square law. The first 
+        // division by _d simply normalises _dx or _dy 
+        _cumulativeX += _dx / _dSquared;
+        _cumulativeY += _dy / _dSquared; 
+      }
+      // anti-social individuals should always move strongly away from others.
+      else if( _sociability < 0 && _dSquared > 0 ) {
+        var _d = Math.sqrt(_dSquared);
+        _cumulativeX += _dx / _dSquared;
+        _cumulativeY += _dy / _dSquared; 
+      }
+      // if _d == 0, displace by a small random amount to avoid co-incident objects
+      if(_dSquared == 0) {
+        _cumulativeX += Math.random()*1 - 1;
+        _cumulativeY += Math.random()*1 - 1;
       }
     }
   });
-  // multiply by the object's sociability factor: negative values are anti-social
-  _cumulativeX *= _object.behaviour.sociability;
-  _cumulativeY *= _object.behaviour.sociability;
+  // scale by the object's radius and multiply by the object's sociability factor
+  // N.B. negative values are anti-social
+  _cumulativeX *= _object.radius * _sociability;
+  _cumulativeY *= _object.radius * _sociability;
+  // return the object's direction 
   if (_cumulativeX == 0) {
     return Math.PI/2* Math.sign(_cumulativeY);
   }
@@ -119,7 +138,7 @@ const BEHAVIOURS = {
   }),
 
   // Wanderer: wanders around uninfluenced by other individuals
-  wanderer: new Behaviour('W',2,3,0, function(_object) {
+  wanderer: new Behaviour('W',0.5,1,0, function(_object) {
     // wanderers travel in a straight line until they hit the edge of the world
     var _direction = _object.direction;
     // if the next move would take the object off the edge of the world, we need to
@@ -148,10 +167,10 @@ const BEHAVIOURS = {
   }),
 
   // Distancer: gets as far away as possible from others
-  distancer: new Behaviour('D',2,3,-1, socialBasedDirectionFunction),
+  distancer: new Behaviour('D',0.5,1,-1, sociabilityBasedDirectionFunction),
 
   // Socialiser: goes towards others
-  socialiser: new Behaviour('S',2,3,1, socialBasedDirectionFunction)
+  socialiser: new Behaviour('S',0.5,1,1, sociabilityBasedDirectionFunction)
 }
 
 class Position {
@@ -189,23 +208,6 @@ class Position {
     this.coordinate[this.parent.parentWorld.flipperOff][1] = _value;
   }
 
-  // METHODS
-
-  // calculate the parent object's position on the next turn
-  calculateNextPosition() {
-    // work out the  parent object's direction based on current state
-    this.parent.direction = this.parent.behaviour.directionFunction(this.parent);
-
-    // calculate the next position based on the parent object's current speed and direction
-    var _x = this.x + this.parent.speed * Math.cos(this.parent.direction);
-    var _y = this.y + this.parent.speed * Math.sin(this.parent.direction);
-
-    // check for positions outside the bounds of the world and bring them back inside
-    this.nextX = Math.max(0, Math.min(this.parent.parentWorld.width, _x));
-    this.nextY = Math.max(0, Math.min(this.parent.parentWorld.width, _y));
-
-  }
-
 }
 
 // Define a class of "individual"
@@ -237,6 +239,8 @@ class Individual {
     this.direction = Math.random() * 2*Math.PI;
     // clone the class's template SVG to this individual
     this.glyph = Individual.templateGlyph.cloneNode(true);
+    // take half width as the radius for purposes of collision detection
+    this.radius = this.glyph.width.baseVal.value/2; // TODO: check this works. May need to be valueInSpecifiedUnits
     this.glyph.id = this.id;
     // set up some accessors for the bits we'll need to change
     this.glyph.backgroundCircle = this.glyph.getElementsByClassName('individual-background-circle').item(0);
@@ -259,6 +263,33 @@ class Individual {
   }
 
   // METHODS
+
+  // calculate the object's position on the next turn
+  calculateNextPosition() {
+    // work out the object's direction based on current state
+    this.direction = this.behaviour.directionFunction(this);
+
+    // calculate the next position based on the object's current speed and direction
+    var _x = this.position.x + this.speed * Math.cos(this.direction);
+    var _y = this.position.y + this.speed * Math.sin(this.direction);
+
+    // reference to this for use inside the forEach
+    var _this = this;
+    // avoid two objects occupying the same space
+    this.parentWorld.individual.forEach(function(_i) {
+      var _d = _this.getDistanceFrom(_i);
+      if(_d < _this.radius + _i.radius) {
+        // TODO take evasive action
+//        console.log(_this.getDistanceFrom(_i) + ' : ' + _this.radius + ' : ' + _i.radius);
+      }
+    });
+
+
+    // check for positions outside the bounds of the world and bring them back inside
+    this.position.nextX = Math.max(0, Math.min(this.parentWorld.width, _x));
+    this.position.nextY = Math.max(0, Math.min(this.parentWorld.width, _y));
+
+  }
 
   redraw() {
     var _bgColor = this.infected ? 'red' : 'green';
@@ -285,9 +316,9 @@ class Individual {
   }
 
   getDistanceFrom(other) {
-    var dx = other.position.x - this.position.x;
-    var dy = other.position.y - this.position.y;
-    return Math.sqrt(dx^2 + dy^2);
+    var _dx = other.position.x - this.position.x;
+    var _dy = other.position.y - this.position.y;
+    return Math.sqrt(_dx*_dx + _dy*_dy);
   }
 
 }
@@ -307,7 +338,7 @@ window.onload = function() {
   document.getElementById('templates').remove();
 
   // create a new world with individuals populating it
-  document.world1 = new World('1', 100, 100, 10);
+  document.world1 = new World('1', 100, 100, 30);
 
   // set up a space keypress to advance one turn
   document.addEventListener("keydown", event => {
