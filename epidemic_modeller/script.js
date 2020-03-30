@@ -32,7 +32,7 @@ class World {
   advanceOneTurn() {
     // calculate the next state of the world (and things in it)
     this.individual.forEach(function(i) {
-      i.calculateNextPosition();
+      i.position.calculateNext();
     });
     // increment the turn count
     this.turn++;
@@ -54,11 +54,11 @@ class World {
 
 // Class for describing a virus
 class Virus {
-  constructor(_transmissionRadius, _transmissionProbability, _infectionTime, _mortalityRate) {
+  constructor(_recoveryProbabilityPerTurn, _deathProbabilityPerTurn, _transmissionRadius, _transmissionProbabilityPerTurn, ) {
+    this.recoveryProbabilityPerTurn = _recoveryProbabilityPerTurn;
+    this.deathProbabilityPerTurn = _deathProbabilityPerTurn;
     this.transmissionRadius = _transmissionRadius;
-    this.transmissionProbability = _transmissionProbability;
-    this.infectionTime = _infectionTime;
-    this.mortalityRate = _mortalityRate;
+    this.transmissionProbability = _transmissionProbabilityPerTurn;
   }
 }
 
@@ -144,7 +144,7 @@ const BEHAVIOURS = {
   }),
 
   // Wanderer: wanders around uninfluenced by other individuals
-  wanderer: new Behaviour('W',0.5,1,0, function(_object) {
+  wanderer: new Behaviour('W',0.1,0.2,0, function(_object) {
     // wanderers travel in a straight line until they hit the edge of the world
     var _direction = _object.direction;
     // if the next move would take the object off the edge of the world, we need to
@@ -173,10 +173,10 @@ const BEHAVIOURS = {
   }),
 
   // Distancer: gets as far away as possible from others
-  distancer: new Behaviour('D',0.5,1,-1, sociabilityBasedDirectionFunction),
+  distancer: new Behaviour('D',0.1,0.2,-1, sociabilityBasedDirectionFunction),
 
   // Socialiser: goes towards others
-  socialiser: new Behaviour('S',0.5,1,1, sociabilityBasedDirectionFunction)
+  socialiser: new Behaviour('S',0.1,0.2,1, sociabilityBasedDirectionFunction)
 }
 
 class Position {
@@ -213,6 +213,35 @@ class Position {
   set nextY(_value) {
     this.coordinate[this.parent.parentWorld.flipperOff][1] = _value;
   }
+
+  // METHODS
+
+  // calculate the object's position on the next turn
+  calculateNext() {
+    // work out the object's direction based on current state
+    this.parent.direction = this.parent.behaviour.directionFunction(this.parent);
+
+    // calculate the next position based on the object's current speed and direction
+    var _x = this.x + this.parent.speed * Math.cos(this.parent.direction);
+    var _y = this.y + this.parent.speed * Math.sin(this.parent.direction);
+
+    // reference to this for use inside the forEach
+    var _this = this;
+    // avoid two objects occupying the same space
+    this.parent.parentWorld.individual.forEach(function(_i) {
+      var _d = _this.parent.getDistanceFrom(_i);
+      if(_d < _this.parent.radius + _i.radius) {
+        // TODO take evasive action
+//        console.log(_this.getDistanceFrom(_i) + ' : ' + _this.radius + ' : ' + _i.radius);
+      }
+    });
+
+    // check for positions outside the bounds of the world and bring them back inside
+    this.nextX = Math.max(0, Math.min(this.parent.maxX, _x));
+    this.nextY = Math.max(0, Math.min(this.parent.maxY, _y));
+
+  }
+
 
 }
 
@@ -270,42 +299,17 @@ class Individual {
     return '\u{1F642}'
   }
 
+  // the maximum allowed value of position.x for this object
   get maxX() {
     return this.parentWorld.width - this.width;
   }
 
+  // the maximum allowed value of position.y for this object
   get maxY() {
     return this.parentWorld.height - this.height;
   }
 
   // METHODS
-
-  // calculate the object's position on the next turn
-  calculateNextPosition() {
-    // work out the object's direction based on current state
-    this.direction = this.behaviour.directionFunction(this);
-
-    // calculate the next position based on the object's current speed and direction
-    var _x = this.position.x + this.speed * Math.cos(this.direction);
-    var _y = this.position.y + this.speed * Math.sin(this.direction);
-
-    // reference to this for use inside the forEach
-    var _this = this;
-    // avoid two objects occupying the same space
-    this.parentWorld.individual.forEach(function(_i) {
-      var _d = _this.getDistanceFrom(_i);
-      if(_d < _this.radius + _i.radius) {
-        // TODO take evasive action
-//        console.log(_this.getDistanceFrom(_i) + ' : ' + _this.radius + ' : ' + _i.radius);
-      }
-    });
-
-
-    // check for positions outside the bounds of the world and bring them back inside
-    this.position.nextX = Math.max(0, Math.min(this.parentWorld.width - this.width, _x));
-    this.position.nextY = Math.max(0, Math.min(this.parentWorld.width - this.height, _y));
-
-  }
 
   redraw() {
     var _bgColor = this.infected ? 'red' : 'green';
@@ -354,7 +358,7 @@ window.onload = function() {
   document.getElementById('templates').remove();
 
   // create a new world with individuals populating it
-  document.world1 = new World('1', 200, 200, 30);
+  document.world1 = new World('1', 20, 20, 30);
 
   // set up a space keypress to advance one turn
   document.addEventListener("keydown", event => {
