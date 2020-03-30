@@ -1,6 +1,7 @@
 // Define a class of "worlds" in which the model will take place
 class World {
   constructor(_id, _width, _height, _individualCount) {
+    // basic properties 
     this.id = 'world-' + _id;
     this.width = _width;
     this.height = _height;
@@ -13,6 +14,10 @@ class World {
  
     // draw the diplay for the world
     this.display = World.templateDisplay.cloneNode(true);
+    this.display.viewBox.baseVal.x = 0;
+    this.display.viewBox.baseVal.y = 0;
+    this.display.viewBox.baseVal.width = this.width;
+    this.display.viewBox.baseVal.height = this.height;
     this.display.id = this.id;
     // add the display SVG
     document.body.appendChild(this.display);
@@ -85,7 +90,6 @@ function sociabilityBasedDirectionFunction(_object) {
   var _cumulativeX = 0;
   var _cumulativeY = 0;
   var _sociability = _object.behaviour.sociability;
-  console.log(_object.id + ' : ' + _object.behaviour.label + ' : ' + _sociability)
   // Cycle through the array of the individuals in the parent world
   _object.parentWorld.individual.forEach(function(_i) {
     // ignore _object among the individuals; we are only interested in *other* individuals
@@ -96,6 +100,7 @@ function sociabilityBasedDirectionFunction(_object) {
       var _dSquared = _dx*_dx + _dy*_dy;
       // check whether _i should influence _object.
       // social individuals should stop attracting once they are next to each other.
+      // TODO: make a softer 'stop' to the attraction law.
       if( _sociability > 0 && _dSquared > Math.pow(_object.radius + _i.radius, 2) ) {
         // use an inverse distance law to work out how much each individual influences the object
         // N.B. dividing by _dSquared gives an inverse law, NOT an inverse square law. The first 
@@ -105,6 +110,7 @@ function sociabilityBasedDirectionFunction(_object) {
       }
       // anti-social individuals should always move strongly away from others.
       else if( _sociability < 0 && _dSquared > 0 ) {
+        // TODO work out what the function should be here.
         var _d = Math.sqrt(_dSquared);
         _cumulativeX += _dx / _dSquared;
         _cumulativeY += _dy / _dSquared; 
@@ -148,20 +154,20 @@ const BEHAVIOURS = {
     if (_x == 0) {
       // if the object is in a corner we can simply point it back inside
       if (_y == 0) {_direction = Math.random()*Math.PI/2}
-      else if (_y == _object.parentWorld.height) {_direction = Math.random()*Math.PI/2 - Math.PI/2}
+      else if (_y == _object.maxY) {_direction = Math.random()*Math.PI/2 - Math.PI/2}
       // otherwise we must check the direction
       else if (Math.cos(_direction) < 0) {_direction = Math.random()*Math.PI - Math.PI/2}
     }
-    else if (_x == _object.parentWorld.width) {
+    else if (_x == _object.maxX) {
       // if the object is in a corner we can simply point it back inside
       if (_y == 0) {_direction = Math.random()*Math.PI/2 + Math.PI/2}
-      else if (_y == _object.parentWorld.height) {_direction = Math.random()*Math.PI/2 - Math.PI}
+      else if (_y == _object.maxY) {_direction = Math.random()*Math.PI/2 - Math.PI}
       // otherwise we must check the direction
       else if (Math.cos(_direction) > 0) {_direction = Math.random()*Math.PI + Math.PI/2}
     }
     // we have already checked corners, so it is sufficient to check top and bottom edges
     else if (_y == 0 && Math.sin(_direction) < 0) {_direction = Math.random()*Math.PI}
-    else if (_y == _object.parentWorld.height && Math.sin(_direction) > 0) {_direction = Math.random()*Math.PI - Math.PI}
+    else if (_y == _object.maxY && Math.sin(_direction) > 0) {_direction = Math.random()*Math.PI - Math.PI}
     // return the result
     return _direction;
   }),
@@ -182,8 +188,8 @@ class Position {
     this.coordinate = new Array(2);
     this.coordinate.fill([0,0]);
     // set a random starting position within the world. Uses the setters below.
-    this.x = Math.random() * this.parent.parentWorld.width;
-    this.y = Math.random() * this.parent.parentWorld.height;
+    this.x = Math.random() * (_object.maxX);
+    this.y = Math.random() * (_object.maxY);
   }
 
   // getters and setters so we can just refer to an individual's "position"
@@ -228,8 +234,6 @@ class Individual {
     // they also have infected or killed any others
     this.infectedCount = 0;
     this.deathCount = 0;
-    // pick a random position within the world
-    this.position = new Position(this);
     // what kind of behaviour will it have?
     // TODO: allow this to be influenced by user input to create
     // different balances of behaviours in a world
@@ -239,8 +243,10 @@ class Individual {
     this.direction = Math.random() * 2*Math.PI;
     // clone the class's template SVG to this individual
     this.glyph = Individual.templateGlyph.cloneNode(true);
+    this.width = this.glyph.width.baseVal.valueInSpecifiedUnits;
+    this.height = this.glyph.height.baseVal.valueInSpecifiedUnits;
     // take half width as the radius for purposes of collision detection
-    this.radius = this.glyph.width.baseVal.value/2; // TODO: check this works. May need to be valueInSpecifiedUnits
+    this.radius = this.width/2;
     this.glyph.id = this.id;
     // set up some accessors for the bits we'll need to change
     this.glyph.backgroundCircle = this.glyph.getElementsByClassName('individual-background-circle').item(0);
@@ -248,6 +254,8 @@ class Individual {
     this.glyph.labelTextElement = this.glyph.getElementsByClassName('individual-label').item(0);
     this.glyph.infectedCountTextElement = this.glyph.getElementsByClassName('individual-infected-count').item(0);
     this.glyph.deathCountTextElement = this.glyph.getElementsByClassName('individual-death-count').item(0);
+    // pick a random position within the world
+    this.position = new Position(this);
     // add the individual to the world display
     this.parentWorld.display.appendChild(this.glyph);
     this.redraw();
@@ -260,6 +268,14 @@ class Individual {
     if(this.infected) return '\u{1F912}';
     // otherwise smiley face
     return '\u{1F642}'
+  }
+
+  get maxX() {
+    return this.parentWorld.width - this.width;
+  }
+
+  get maxY() {
+    return this.parentWorld.height - this.height;
   }
 
   // METHODS
@@ -286,8 +302,8 @@ class Individual {
 
 
     // check for positions outside the bounds of the world and bring them back inside
-    this.position.nextX = Math.max(0, Math.min(this.parentWorld.width, _x));
-    this.position.nextY = Math.max(0, Math.min(this.parentWorld.width, _y));
+    this.position.nextX = Math.max(0, Math.min(this.parentWorld.width - this.width, _x));
+    this.position.nextY = Math.max(0, Math.min(this.parentWorld.width - this.height, _y));
 
   }
 
@@ -338,7 +354,7 @@ window.onload = function() {
   document.getElementById('templates').remove();
 
   // create a new world with individuals populating it
-  document.world1 = new World('1', 100, 100, 30);
+  document.world1 = new World('1', 200, 200, 30);
 
   // set up a space keypress to advance one turn
   document.addEventListener("keydown", event => {
