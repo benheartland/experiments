@@ -103,16 +103,18 @@ class Infection {
 
   // action the infection outcome for this turn: recovery, death or continued infection
   act() {
-    // get a random number [0,1)
-    var p = Math.random();
-    // recovery
-    if(p < this.virus.recoveryProbabilityPerTurn) {
-      this.active = false;
-      this.endedOnTurn = this.targetIndividual.parentWorld.turn;
-    }
-    // death
-    else if(1 - p < this.virus.deathProbabilityPerTurn) {
-      this.killTarget();
+    if(this.active) {
+      // get a random number [0,1)
+      var p = Math.random();
+      // recovery
+      if(p < this.virus.recoveryProbabilityPerTurn) {
+        this.active = false;
+        this.endedOnTurn = this.targetIndividual.parentWorld.turn;
+      }
+      // death
+      else if(1 - p < this.virus.deathProbabilityPerTurn) {
+        this.killTarget();
+      }
     }
   }
 
@@ -433,6 +435,7 @@ window.onload = function() {
 
   // infect patient zero
   virus.infect(null, document.world.individual[0]);
+  document.world.individual[0].redraw();
 
   // set up a space keypress to advance one turn
   document.addEventListener("keydown", event => {
