@@ -11,7 +11,7 @@ class World {
     // element of the position array is current.
     this.flipperOn = 0;
     this.flipperOff = 1;
- 
+
     // draw the diplay for the world
     this.display = World.templateDisplay.cloneNode(true);
     this.display.viewBox.baseVal.x = 0;
@@ -21,18 +21,24 @@ class World {
     this.display.id = this.id;
     // add the display SVG
     document.body.appendChild(this.display);
- 
+
     // populate the world with individuals
     this.individual = new Array();
     for(var i=0; i<_individualCount; i++) {
-      this.addIndividual(i);
+      this.addIndividual();
     }
   }
 
+  // METHODS
+  addIndividual() {
+    this.individual.push( new Individual( this, this.individual.length, false ) );
+  }
+  
   advanceOneTurn() {
     // calculate the next state of the world (and things in it)
-    this.individual.forEach(function(i) {
-      i.position.calculateNext();
+    // only update individuals who are alive
+    this.individual.filter(i => i.alive).forEach(function(i) {
+      i.advanceOneTurn();
     });
     // increment the turn count
     this.turn++;
@@ -45,21 +51,71 @@ class World {
     });
   }
 
-  // METHODS
-  addIndividual(i) {
-    this.individual.push( new Individual( this, this.individual.length, (i==0) ? true : false ) );
-  }
-
 }
 
 // Class for describing a virus
 class Virus {
-  constructor(_recoveryProbabilityPerTurn, _deathProbabilityPerTurn, _transmissionRadius, _transmissionProbabilityPerTurn, ) {
+  constructor(_name, _recoveryProbabilityPerTurn, _deathProbabilityPerTurn, _transmissionRadius, _transmissionProbabilityPerTurn) {
+    this.name = _name;
     this.recoveryProbabilityPerTurn = _recoveryProbabilityPerTurn;
     this.deathProbabilityPerTurn = _deathProbabilityPerTurn;
     this.transmissionRadius = _transmissionRadius;
     this.transmissionProbability = _transmissionProbabilityPerTurn;
   }
+
+  // METHODS
+
+  // is the given individual infected with this virus?
+  isInfected(_individual) {
+    return _individual.infection.some(_infection => _infection.virus == this);
+  }
+
+  // infect an indidual
+  infect(_sourceIndividual, _targetIndividual) {
+    _targetIndividual.infection.push(new Infection(_sourceIndividual, _targetIndividual, this));
+    // increment the count of infections that the source individual has caused. The 'if' guards against
+    // _sourceIndividual being null (e.g. in the case of patient zero)
+    if(_sourceIndividual) _sourceIndividual.infectedCount++;
+  }
+
+}
+
+// an infection of one individual by one virus
+class Infection {
+  constructor(_sourceIndividual, _targetIndividual, _virus) {
+    this.sourceIndividual = _sourceIndividual;
+    this.targetIndividual = _targetIndividual;
+    this.virus = _virus;
+    // the infection is active when it starts
+    this.active = true;
+    this.startedOnTurn = _targetIndividual.parentWorld.turn;
+    this.endedOnTurn = null;
+  }
+
+  // METHODS
+
+  // kill the infected individual
+  killTarget() {
+    this.targetIndividual.die();
+    // increment the death count of the source individual (if it exists)
+    if(this.sourceIndividual) this.sourceIndividual.deathCount++;
+  }
+
+  // action the infection outcome for this turn: recovery, death or continued infection
+  act() {
+    // get a random number [0,1)
+    var p = Math.random();
+    // recovery
+    if(p < this.virus.recoveryProbabilityPerTurn) {
+      this.active = false;
+      this.endedOnTurn = this.targetIndividual.parentWorld.turn;
+    }
+    // death
+    else if(1 - p < this.virus.deathProbabilityPerTurn) {
+      this.killTarget();
+    }
+  }
+
 }
 
 // Class for describing the behaviour of an individual
@@ -90,8 +146,8 @@ function sociabilityBasedDirectionFunction(_object) {
   var _cumulativeX = 0;
   var _cumulativeY = 0;
   var _sociability = _object.behaviour.sociability;
-  // Cycle through the array of the individuals in the parent world
-  _object.parentWorld.individual.forEach(function(_i) {
+  // Cycle through the array of the individuals in the parent world. Exclude dead individuals.
+  _object.parentWorld.individual.filter(i => i.alive).forEach(function(_i) {
     // ignore _object among the individuals; we are only interested in *other* individuals
     if(_i != _object) {
       // work out the vector and absolute distance between the two objects
@@ -106,7 +162,7 @@ function sociabilityBasedDirectionFunction(_object) {
         // N.B. dividing by _dSquared gives an inverse law, NOT an inverse square law. The first 
         // division by _d simply normalises _dx or _dy 
         _cumulativeX += _dx / _dSquared;
-        _cumulativeY += _dy / _dSquared; 
+        _cumulativeY += _dy / _dSquared;
       }
       // anti-social individuals should always move strongly away from others.
       else if( _sociability < 0 && _dSquared > 0 ) {
@@ -192,7 +248,8 @@ class Position {
     this.y = Math.random() * (_object.maxY);
   }
 
-  // getters and setters so we can just refer to an individual's "position"
+  // getters and setters so we can just refer to an individual's "position" withour worrying
+  // about which side the flipper is on.
   get x() {
     return this.coordinate[this.parent.parentWorld.flipperOn][0];
   }
@@ -216,7 +273,7 @@ class Position {
 
   // METHODS
 
-  // calculate the object's position on the next turn
+  // calculate the parent object's position on the next turn
   calculateNext() {
     // work out the object's direction based on current state
     this.parent.direction = this.parent.behaviour.directionFunction(this.parent);
@@ -242,14 +299,13 @@ class Position {
 
   }
 
-
 }
 
 // Define a class of "individual"
 class Individual {
 
   // constructor function
-  constructor(_world, _id, _infected = false) {
+  constructor(_world, _id) {
     //backreference to the world to which this individual belongs
     this.parentWorld = _world;
     this.id = _world.id + '-individual-' + _id;
@@ -257,9 +313,7 @@ class Individual {
     this.alive = true;
     this.immune = false;
     this.diedOnTurn = null;
-    this.infected = _infected; // default: false
-    this.infectedOnTurn = null;
-    this.infectedBy = null;
+    this.infection = new Array(); // array of the infection this individual currently has (initially empty)
     // they also have infected or killed any others
     this.infectedCount = 0;
     this.deathCount = 0;
@@ -290,11 +344,16 @@ class Individual {
     this.redraw();
   }
 
+  // is the individual currently infected with anything?
+  get isInfected() {
+    return this.infection.filter(i => i.active).length > 0 ? true : false;
+  }
+
   get icon() {
     // dead => skull and crossbones
     if(!this.alive) return '\u2620';
     // infected => face with thermometer
-    if(this.infected) return '\u{1F912}';
+    if(this.isInfected) return '\u{1F912}';
     // otherwise smiley face
     return '\u{1F642}'
   }
@@ -312,7 +371,7 @@ class Individual {
   // METHODS
 
   redraw() {
-    var _bgColor = this.infected ? 'red' : 'green';
+    var _bgColor = this.alive ? this.isInfected ? 'red' : 'green' : 'black';
     this.glyph.backgroundCircle.setAttribute('stroke', _bgColor);
     this.glyph.backgroundCircle.setAttribute('fill', _bgColor);
     this.glyph.iconTextElement.innerHTML = this.icon;
@@ -323,28 +382,37 @@ class Individual {
     this.glyph.setAttribute('y', this.position.y);
   }
 
-  // Infect another individual
-  infect(otherIndividual) {otherIndividual.infected = true}
-
   // Die
   die() {
     this.alive = false;
-    this.diedOnTurn = parentWorld.turn;
     this.speed = 0;
-    // dead individuals can't infect others
-    this.infected = false;
+    this.diedOnTurn = this.parentWorld.turn;
   }
 
-  getDistanceFrom(other) {
-    var _dx = other.position.x - this.position.x;
-    var _dy = other.position.y - this.position.y;
+  getDistanceFrom(that) {
+    var _dx = that.position.x - this.position.x;
+    var _dy = that.position.y - this.position.y;
     return Math.sqrt(_dx*_dx + _dy*_dy);
   }
 
+  advanceOneTurn() {
+    var _this = this;
+    this.infection.forEach(function(_infection) {
+      if(_infection.active) {
+        // will any other individuals get infected? Filter out those who are already infected or outside the transmission radius
+        _this.parentWorld.individual.filter( _that => (!_infection.virus.isInfected(_that)) && (_this.getDistanceFrom(_that) < _infection.virus.transmissionRadius) ).forEach(function(_that) {
+          if(Math.random() < _infection.virus.transmissionProbability) {
+            _infection.virus.infect(_this, _that);
+          }
+        });
+      }
+      // what will the infection do to the individual on this turn (e.g. kill it, recovery, nothing)
+      _infection.act();
+    });
+    // calculate the position on next turn
+    this.position.calculateNext();
+  }
 }
-
-// Globals
-var world1;
 
 // create an instance of a world
 window.onload = function() {
@@ -357,13 +425,19 @@ window.onload = function() {
   // displayed but it keeps the DOM clean
   document.getElementById('templates').remove();
 
+  // create a virus (name, recoveryProbabilityPerTurn, deathProbabilityPerTurn, transmissionRadius, transmissionProbabilityPerTurn)
+  var virus = new Virus('Virus1', 0.05, 0.01, 3, 0.1);
+
   // create a new world with individuals populating it
-  document.world1 = new World('1', 20, 20, 30);
+  document.world = new World('1', 15, 15, 20);
+
+  // infect patient zero
+  virus.infect(null, document.world.individual[0]);
 
   // set up a space keypress to advance one turn
   document.addEventListener("keydown", event => {
     if (event.key == ' ') {
-      document.world1.advanceOneTurn();
+      document.world.advanceOneTurn();
     }
   });
 
