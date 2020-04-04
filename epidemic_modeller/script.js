@@ -29,6 +29,9 @@ class World {
     }
   }
 
+  // TODO: a getter find the maximum transmissionRadius for viruses present in the world
+  // get safeDistance() {}
+
   // METHODS
   addIndividual() {
     this.individual.push( new Individual( this, this.individual.length, false ) );
@@ -128,7 +131,8 @@ class Behaviour {
     return Object.values(BEHAVIOURS)[Math.floor( Math.random() * Object.keys(BEHAVIOURS).length )];
   }
 
-  constructor(_label, _minSpeed, _maxSpeed, _sociability, _directionFunction) {
+  constructor(_name, _label, _minSpeed, _maxSpeed, _sociability, _directionFunction) {
+    this.name = _name;
     this.label = _label;
     this.minSpeed = _minSpeed;
     this.maxSpeed = _maxSpeed;
@@ -196,13 +200,13 @@ function sociabilityBasedDirectionFunction(_object) {
 // Enumerate the different behaviours
 const BEHAVIOURS = {
   // StayPut: doesn't move
-  stayPut: new Behaviour('P',0,0,0, function(_object) {
+  stayPut: new Behaviour('StayPut', 'P',0,0,0, function(_object) {
     // direction is irrelevant for a stayPut, so just return the current value unchanged
     return _object.direction;
   }),
 
   // Wanderer: wanders around uninfluenced by other individuals
-  wanderer: new Behaviour('W',0.1,0.2,0, function(_object) {
+  wanderer: new Behaviour('Wanderer', 'W',0.1,0.2,0, function(_object) {
     // wanderers travel in a straight line until they hit the edge of the world
     var _direction = _object.direction;
     // if the next move would take the object off the edge of the world, we need to
@@ -231,10 +235,10 @@ const BEHAVIOURS = {
   }),
 
   // Distancer: gets as far away as possible from others
-  distancer: new Behaviour('D',0.1,0.2,-1, sociabilityBasedDirectionFunction),
+  distancer: new Behaviour('Distancer', 'D',0.1,0.2,-1, sociabilityBasedDirectionFunction),
 
   // Socialiser: goes towards others
-  socialiser: new Behaviour('S',0.1,0.2,1, sociabilityBasedDirectionFunction)
+  socialiser: new Behaviour('Socialiser', 'S',0.1,0.2,1, sociabilityBasedDirectionFunction)
 }
 
 class Position {
@@ -264,8 +268,14 @@ class Position {
   set y(_value) {
     this.coordinate[this.parent.parentWorld.flipperOn][1] = _value;
   }
-  // when setting next x and y, we put the values into the "off" side of the
+  // when [gs]etting next x and y, we put the values into the "off" side of the
   // coordinate array
+  get nextX() {
+    return this.coordinate[this.parent.parentWorld.flipperOff][0];
+  }
+  get nextY() {
+    return this.coordinate[this.parent.parentWorld.flipperOff][1];
+  }
   set nextX(_value) {
     this.coordinate[this.parent.parentWorld.flipperOff][0] = _value;
   }
@@ -284,16 +294,14 @@ class Position {
     var _x = this.x + this.parent.speed * Math.cos(this.parent.direction);
     var _y = this.y + this.parent.speed * Math.sin(this.parent.direction);
 
-    // reference to this for use inside the forEach
-    var _this = this;
     // avoid two objects occupying the same space
-    this.parent.parentWorld.individual.forEach(function(_i) {
-      var _d = _this.parent.getDistanceFrom(_i);
-      if(_d < _this.parent.radius + _i.radius) {
+    this.parent.parentWorld.individual.forEach(function(that) {
+      var _d = this.parent.getDistanceFrom(that);
+      if(_d < this.parent.radius + that.radius) {
         // TODO take evasive action
-//        console.log(_this.getDistanceFrom(_i) + ' : ' + _this.radius + ' : ' + _i.radius);
+//        console.log(this.getDistanceFrom(that) + ' : ' + this.radius + ' : ' + that.radius);
       }
-    });
+    }, this);
 
     // check for positions outside the bounds of the world and bring them back inside
     this.nextX = Math.max(0, Math.min(this.parent.maxX, _x));
@@ -339,6 +347,7 @@ class Individual {
     this.glyph.labelTextElement = this.glyph.getElementsByClassName('individual-label').item(0);
     this.glyph.infectedCountTextElement = this.glyph.getElementsByClassName('individual-infected-count').item(0);
     this.glyph.deathCountTextElement = this.glyph.getElementsByClassName('individual-death-count').item(0);
+    this.glyph.title = this.glyph.getElementsByTagName('title').item(0);
     // pick a random position within the world
     this.position = new Position(this);
     // add the individual to the world display
@@ -382,6 +391,9 @@ class Individual {
     this.glyph.deathCountTextElement.innerHTML = this.deathCount;
     this.glyph.setAttribute('x', this.position.x);
     this.glyph.setAttribute('y', this.position.y);
+    var statusText = this.alive ? this.isInfected ? ' (infected)' : '' : ' (dead)';
+    this.glyph.title.innerHTML = `${this.behaviour.name}${statusText}
+Caused ${this.infectedCount} infections, of which ${this.deathCount} ended in death.`;
   }
 
   // Die
@@ -398,22 +410,24 @@ class Individual {
   }
 
   advanceOneTurn() {
-    var _this = this;
-    this.infection.forEach(function(_infection) {
-      if(_infection.active) {
-        // will any other individuals get infected? Filter out those who are already infected or outside the transmission radius
-        _this.parentWorld.individual.filter( _that => (!_infection.virus.isInfected(_that)) && (_this.getDistanceFrom(_that) < _infection.virus.transmissionRadius) ).forEach(function(_that) {
-          if(Math.random() < _infection.virus.transmissionProbability) {
-            _infection.virus.infect(_this, _that);
-          }
-        });
-      }
-      // what will the infection do to the individual on this turn (e.g. kill it, recovery, nothing)
+    // for each active infection on this individual, work out what will happen.
+    this.infection.filter(i => i.active).forEach(function(_infection) {
+
+      // will any other individuals get infected? Filter out those who are already infected or outside the transmission radius
+      this.parentWorld.individual.filter( that => (!_infection.virus.isInfected(that)) && (this.getDistanceFrom(that) < _infection.virus.transmissionRadius) ).forEach(function(that) {
+        if(Math.random() < _infection.virus.transmissionProbability) {
+          _infection.virus.infect(this, that);
+        }
+      }, this);
+
+      // what will be action of the infection on this individual on this turn (e.g. death, recovery, nothing)
       _infection.act();
-    });
-    // calculate the position on next turn
+
+    }, this);
+    // calculate this individual's position on next turn
     this.position.calculateNext();
   }
+
 }
 
 // create an instance of a world
