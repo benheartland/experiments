@@ -1,3 +1,13 @@
+// extend the Math object with a factorial method
+Math.factorial = function(n) {
+  var result = 1;
+  for(var i = 2; i <= n; i++) {
+    result *= i;
+  }
+  return result;
+}
+
+
 // Define a class of "worlds" in which the model will take place
 class World {
   constructor(_id, _width, _height, _individualCount) {
@@ -131,13 +141,13 @@ class Behaviour {
     return Object.values(BEHAVIOURS)[Math.floor( Math.random() * Object.keys(BEHAVIOURS).length )];
   }
 
-  constructor(_name, _label, _minMaxSpeed, _maxMaxSpeed, _sociability, _directionFunction) {
+  constructor(_name, _label, _minMaxSpeed, _maxMaxSpeed, _sociability, _movementFunction) {
     this.name = _name;
     this.label = _label;
     this.minMaxSpeed = _minMaxSpeed;
     this.maxMaxSpeed = _maxMaxSpeed;
     this.sociability = _sociability;
-    this.directionFunction = _directionFunction;
+    this.movementFunction = _movementFunction;
   }
 
   // get a random speed between minSpeed and maxSpeed
@@ -147,72 +157,77 @@ class Behaviour {
 
 }
 
-function sociabilityBasedDirectionFunction(_object) {
+function sociabilityBasedMovementFunction(_object) {
   // 
   var _cumulativeX = 0;
   var _cumulativeY = 0;
   var _sociability = _object.behaviour.sociability;
-  // Cycle through the array of the individuals in the parent world. Exclude dead individuals.
-  _object.parentWorld.individual.filter(i => i.alive).forEach(function(_i) {
-    // ignore _object among the individuals; we are only interested in *other* individuals
-    if(_i != _object) {
-      // work out the vector and absolute distance between the two objects
-      var _dx = _i.position.x - _object.position.x;
-      var _dy = _i.position.y - _object.position.y;
-      var _dSquared = _dx*_dx + _dy*_dy;
-      // check whether _i should influence _object.
-      // social individuals should stop attracting once they are next to each other.
-      // TODO: make a softer 'stop' to the attraction law.
-      if( _sociability > 0 && _dSquared > Math.pow(_object.radius + _i.radius, 2) ) {
-        // use an inverse distance law to work out how much each individual influences the object
-        // N.B. dividing by _dSquared gives an inverse law, NOT an inverse square law. The first 
-        // division by _d simply normalises _dx or _dy 
-        _cumulativeX += _dx / _dSquared;
-        _cumulativeY += _dy / _dSquared;
-      }
-      // anti-social individuals should always move strongly away from others.
-      else if( _sociability < 0 && _dSquared > 0 ) {
-        // TODO work out what the function should be here.
-        var _d = Math.sqrt(_dSquared);
-        _cumulativeX += _dx / _dSquared;
-        _cumulativeY += _dy / _dSquared; 
-      }
-      // if _d == 0, displace by a small random amount to avoid co-incident objects
-      if(_dSquared == 0) {
-        _cumulativeX += Math.random()*1 - 1;
-        _cumulativeY += Math.random()*1 - 1;
-      }
+  // Cycle through the array of the individuals in the parent world. Exclude dead individuals and
+  // ignore _object among the individuals; we are only interested in *other* individuals
+  _object.parentWorld.individual.filter(i => i.alive && i != _object).forEach(function(_individual) {
+    // work out the vector and absolute distance between the two objects
+    var _dx = _individual.position.x - _object.position.x;
+    var _dy = _individual.position.y - _object.position.y;
+    var _d = Math.hypot(_dx, _dy);
+    // _d scaled to sum of the radii of the two objects
+    var _dr = _d/(_object.radius + _individual.radius);
+    // _d scaled to width of the world
+    var _dw = _d/(_object.parentWorld.width);
+    // we need to handle the case when z == 0
+    if(_d == 0) {
+      // move away in a random direction
+      var _randomDir = Math.random() * 2 * Math.PI;
+      _cumulativeX += Math.cos(_randomDir);
+      _cumulativeY += Math.sin(_randomDir);
+    }
+    // use an inverse distance law to work out how much each individual influences the object.
+    // social individuals should stop attracting once they are next to each other.
+    else if( _sociability >= 0 ) {
+      var _z = _sociability*_dw - 5/(_dr*_dr*_dr*_dr);;
+      _cumulativeX += _dx * _z;
+      _cumulativeY += _dy * _z;
+    }
+    // anti-social individuals should always move strongly away from others.
+    else if( _sociability < 0) {
+      // TODO work out what the function should be here.
+      var _z = _sociability*_dw - Math.factorial(_object.parentWorld.individual.length)/(_dr*_dr*_dr);
+      _cumulativeX += _dx * _z;
+      _cumulativeY += _dy * _z;
     }
   });
   // scale by the object's radius and multiply by the object's sociability factor
   // N.B. negative values are anti-social
-  _cumulativeX *= _object.radius * _sociability;
-  _cumulativeY *= _object.radius * _sociability;
-  // return the object's direction 
-  if (_cumulativeX == 0) {
-    return Math.PI/2* Math.sign(_cumulativeY);
+//  _cumulativeX *= _object.radius * _sociability;
+//  _cumulativeY *= _object.radius * _sociability;
+  // set the object's new direction
+  if(_cumulativeX == 0) {
+    _object.direction = Math.PI/2* Math.sign(_cumulativeY);
   }
   else {
-    return Math.atan(_cumulativeY/_cumulativeX) + (Math.sign(_cumulativeX) < 0 ? Math.PI : 0);
+    _object.direction = Math.atan(_cumulativeY/_cumulativeX) + (Math.sign(_cumulativeX) < 0 ? Math.PI : 0);
   }
+  var _speed = Math.min(_object.maxSpeed, Math.hypot(_cumulativeX, _cumulativeY));
+  // return the new position
+  return [Math.cos(_object.direction)*_speed + _object.position.x, Math.sin(_object.direction)*_speed + _object.position.y];
 }
 
 // Enumerate the different behaviours
 const BEHAVIOURS = {
+/*
   // StayPut: doesn't move
-  stayPut: new Behaviour('StayPut', 'P',0,0,0, function(_object) {
-    // direction is irrelevant for a stayPut, so just return the current value unchanged
-    return _object.direction;
+  stayPut: new Behaviour('StayPut', 'P', 0, 0, 0, function(_object) {
+    // just return the current position unchanged
+    return [_object.position.x, _object.position.y];
   }),
 
   // Wanderer: wanders around uninfluenced by other individuals
-  wanderer: new Behaviour('Wanderer', 'W',0.1,0.2,0, function(_object) {
-    // wanderers travel in a straight line until they hit the edge of the world
+  wanderer: new Behaviour('Wanderer', 'W', 0.1, 0.2, 0, function(_object) {
+    // wanderers travel in a straight line at max speed until they hit the edge of the world
+    var _x = _object.position.x;
+    var _y = _object.position.y;
     var _direction = _object.direction;
     // if the next move would take the object off the edge of the world, we need to
     // choose a new direction that points back into the world
-    var _x = _object.position.x;
-    var _y = _object.position.y;
     if (_x == 0) {
       // if the object is in a corner we can simply point it back inside
       if (_y == 0) {_direction = Math.random()*Math.PI/2}
@@ -230,15 +245,18 @@ const BEHAVIOURS = {
     // we have already checked corners, so it is sufficient to check top and bottom edges
     else if (_y == 0 && Math.sin(_direction) < 0) {_direction = Math.random()*Math.PI}
     else if (_y == _object.maxY && Math.sin(_direction) > 0) {_direction = Math.random()*Math.PI - Math.PI}
+    // set the object's new direction
+    _object.direction = _direction;
     // return the result
-    return _direction;
+    return [Math.cos(_direction)*_object.maxSpeed + _x, Math.sin(_direction)*_object.maxSpeed + _y];
   }),
-
+*/
   // Distancer: gets as far away as possible from others
-  distancer: new Behaviour('Distancer', 'D',0.1,0.2,-1, sociabilityBasedDirectionFunction),
+  distancer: new Behaviour('Distancer', 'D', 0.05, 0.1, -1, sociabilityBasedMovementFunction),
 
   // Socialiser: goes towards others
-  socialiser: new Behaviour('Socialiser', 'S',0.1,0.2,1, sociabilityBasedDirectionFunction)
+  socialiser: new Behaviour('Socialiser', 'S', 0.05, 0.1, 1, sociabilityBasedMovementFunction)
+
 }
 
 class Position {
@@ -287,25 +305,21 @@ class Position {
 
   // calculate the parent object's position on the next turn
   calculateNext() {
-    // work out the object's direction based on current state
-    this.parent.direction = this.parent.behaviour.directionFunction(this.parent);
-
-    // calculate the next position based on the object's current speed and direction
-    var _x = this.x + this.parent.maxSpeed * Math.cos(this.parent.direction);
-    var _y = this.y + this.parent.maxSpeed * Math.sin(this.parent.direction);
+    // work out the object's next position based on current state
+    var _newCoordinate = this.parent.behaviour.movementFunction(this.parent);
 
     // avoid two objects occupying the same space
     this.parent.parentWorld.individual.forEach(function(that) {
       var _d = this.parent.getDistanceFrom(that);
       if(_d < this.parent.radius + that.radius) {
         // TODO take evasive action
-//        console.log(this.getDistanceFrom(that) + ' : ' + this.radius + ' : ' + that.radius);
+        console.log('Collision! ' + _d + ' < ' + this.parent.radius + ' + ' + that.radius);
       }
     }, this);
 
     // check for positions outside the bounds of the world and bring them back inside
-    this.nextX = Math.max(0, Math.min(this.parent.maxX, _x));
-    this.nextY = Math.max(0, Math.min(this.parent.maxY, _y));
+    this.nextX = Math.max(0, Math.min(this.parent.maxX, _newCoordinate[0]));
+    this.nextY = Math.max(0, Math.min(this.parent.maxY, _newCoordinate[1]));
 
   }
 
@@ -330,7 +344,9 @@ class Individual {
     // what kind of behaviour will it have?
     // TODO: allow this to be influenced by user input to create
     // different balances of behaviours in a world
+
     this.behaviour = Behaviour.getRandomBehaviour();
+
     // speed and (initial) direction
     this.maxSpeed = this.behaviour.randomMaxSpeed;
     this.direction = Math.random() * 2*Math.PI;
@@ -406,7 +422,7 @@ Caused ${this.infectedCount} infections, of which ${this.deathCount} ended in de
   getDistanceFrom(that) {
     var _dx = that.position.x - this.position.x;
     var _dy = that.position.y - this.position.y;
-    return Math.sqrt(_dx*_dx + _dy*_dy);
+    return Math.hypot(_dx, _dy);
   }
 
   advanceOneTurn() {
@@ -445,7 +461,7 @@ window.onload = function() {
   var virus = new Virus('Virus1', 0.01, 0.005, 3, 0.15);
 
   // create a new world with individuals populating it
-  document.world = new World('1', 15, 15, 20);
+  document.world = new World('1', 15, 15, 50);
 
   // infect patient zero
   virus.infect(null, document.world.individual[0]);
