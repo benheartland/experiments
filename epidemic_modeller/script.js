@@ -30,13 +30,13 @@ class World {
   }
 
   // TODO: a getter find the maximum transmissionRadius for viruses present in the world
-  // get safeDistance() {}
+  // get maxTransmissionRadius() {}
 
   // METHODS
   addIndividual() {
     this.individual.push( new Individual( this, this.individual.length, false ) );
   }
-  
+
   advanceOneTurn() {
     // calculate the next state of the world (and things in it)
     // only update individuals who are alive
@@ -70,7 +70,7 @@ class Virus {
 
   // is the given individual infected with this virus?
   isInfected(_individual) {
-    return _individual.infection.some(_infection => _infection.virus == this);
+    return _individual.infection.some(i => i.virus == this);
   }
 
   // infect an indidual
@@ -131,18 +131,18 @@ class Behaviour {
     return Object.values(BEHAVIOURS)[Math.floor( Math.random() * Object.keys(BEHAVIOURS).length )];
   }
 
-  constructor(_name, _label, _minSpeed, _maxSpeed, _sociability, _directionFunction) {
+  constructor(_name, _label, _minMaxSpeed, _maxMaxSpeed, _sociability, _directionFunction) {
     this.name = _name;
     this.label = _label;
-    this.minSpeed = _minSpeed;
-    this.maxSpeed = _maxSpeed;
+    this.minMaxSpeed = _minMaxSpeed;
+    this.maxMaxSpeed = _maxMaxSpeed;
     this.sociability = _sociability;
     this.directionFunction = _directionFunction;
   }
 
   // get a random speed between minSpeed and maxSpeed
-  get randomSpeed() {
-    return (this.maxSpeed - this.minSpeed)*Math.random() + this.minSpeed;
+  get randomMaxSpeed() {
+    return (this.maxMaxSpeed - this.minMaxSpeed)*Math.random() + this.minMaxSpeed;
   }
 
 }
@@ -291,8 +291,8 @@ class Position {
     this.parent.direction = this.parent.behaviour.directionFunction(this.parent);
 
     // calculate the next position based on the object's current speed and direction
-    var _x = this.x + this.parent.speed * Math.cos(this.parent.direction);
-    var _y = this.y + this.parent.speed * Math.sin(this.parent.direction);
+    var _x = this.x + this.parent.maxSpeed * Math.cos(this.parent.direction);
+    var _y = this.y + this.parent.maxSpeed * Math.sin(this.parent.direction);
 
     // avoid two objects occupying the same space
     this.parent.parentWorld.individual.forEach(function(that) {
@@ -332,7 +332,7 @@ class Individual {
     // different balances of behaviours in a world
     this.behaviour = Behaviour.getRandomBehaviour();
     // speed and (initial) direction
-    this.speed = this.behaviour.randomSpeed;
+    this.maxSpeed = this.behaviour.randomMaxSpeed;
     this.direction = Math.random() * 2*Math.PI;
     // clone the class's template SVG to this individual
     this.glyph = Individual.templateGlyph.cloneNode(true);
@@ -399,7 +399,7 @@ Caused ${this.infectedCount} infections, of which ${this.deathCount} ended in de
   // Die
   die() {
     this.alive = false;
-    this.speed = 0;
+    this.maxSpeed = 0;
     this.diedOnTurn = this.parentWorld.turn;
   }
 
@@ -442,7 +442,7 @@ window.onload = function() {
   document.getElementById('templates').remove();
 
   // create a virus (name, recoveryProbabilityPerTurn, deathProbabilityPerTurn, transmissionRadius, transmissionProbabilityPerTurn)
-  var virus = new Virus('Virus1', 0.05, 0.01, 3, 0.1);
+  var virus = new Virus('Virus1', 0.01, 0.005, 3, 0.15);
 
   // create a new world with individuals populating it
   document.world = new World('1', 15, 15, 20);
