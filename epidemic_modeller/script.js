@@ -147,6 +147,9 @@ class Behaviour {
     this.minMaxSpeed = _minMaxSpeed;
     this.maxMaxSpeed = _maxMaxSpeed;
     this.sociability = _sociability;
+    // a movement function calculates the position of an object on the next turn.
+    // Input: an object with a "position" property (e.g. an Individual)
+    // Returns: a Coordinate
     this.movementFunction = _movementFunction;
   }
 
@@ -208,16 +211,16 @@ function sociabilityBasedMovementFunction(_object) {
   }
   var _speed = Math.min(_object.maxSpeed, Math.hypot(_cumulativeX, _cumulativeY));
   // return the new position
-  return [Math.cos(_object.direction)*_speed + _object.position.x, Math.sin(_object.direction)*_speed + _object.position.y];
+  return new Coordinate(Math.cos(_object.direction)*_speed + _object.position.x, Math.sin(_object.direction)*_speed + _object.position.y);
 }
 
 // Enumerate the different behaviours
 const BEHAVIOURS = {
-/*
+
   // StayPut: doesn't move
   stayPut: new Behaviour('StayPut', 'P', 0, 0, 0, function(_object) {
     // just return the current position unchanged
-    return [_object.position.x, _object.position.y];
+    return new Coordinate(_object.position.x, _object.position.y);
   }),
 
   // Wanderer: wanders around uninfluenced by other individuals
@@ -248,9 +251,9 @@ const BEHAVIOURS = {
     // set the object's new direction
     _object.direction = _direction;
     // return the result
-    return [Math.cos(_direction)*_object.maxSpeed + _x, Math.sin(_direction)*_object.maxSpeed + _y];
+    return new Coordinate(Math.cos(_direction)*_object.maxSpeed + _x, Math.sin(_direction)*_object.maxSpeed + _y);
   }),
-*/
+
   // Distancer: gets as far away as possible from others
   distancer: new Behaviour('Distancer', 'D', 0.05, 0.1, -1, sociabilityBasedMovementFunction),
 
@@ -259,17 +262,49 @@ const BEHAVIOURS = {
 
 }
 
+class Coordinate {
+  constructor(x = 0, y = 0) {
+    this[0] = x;
+    this[1] = y;
+  }
+
+  get x() {return this[0];}
+  set x(_value) {this[0] = _value;}
+  get y() {return this[1];}
+  set y(_value) {this[1] = _value;}
+
+  static randomDisplacement(_maxRadius) {
+    var _radius = _maxRadius * Math.random();
+    var _direction = 2 * Math.PI * Math.random();
+    return [_radius * Math.cos(_direction), _radius * Math.sin(_direction)];
+  }
+  
+  randomise(_minX, _minY, _maxX, _maxY) {
+    this[0] = (_maxX - _minX) * Math.random() + _minX;
+    this[1] = (_maxY - _minY) * Math.random() + _minY;
+  }
+
+  add(_vector) {
+    this[0] += _vector[0];
+    this[1] += _vector[1];
+  }
+
+}
+
 class Position {
   constructor(_object) {
     // backreference to the object to which the Position instance belongs
     this.parent = _object;
-    // we need to sets of position coordinates, one to store the current state and
+    // we need two sets of position coordinates, one to store the current state and
     // one for position on the next turn
     this.coordinate = new Array(2);
-    this.coordinate.fill([0,0]);
+    this.coordinate.fill(new Coordinate());
     // set a random starting position within the world. Uses the setters below.
-    this.x = Math.random() * (_object.maxX);
+    this.coordinate[this.parent.parentWorld.flipperOn].randomise(0, 0, _object.maxX, _object.maxY);
+    /*
+     = Math.random() * (_object.maxX);
     this.y = Math.random() * (_object.maxY);
+    */
   }
 
   // getters and setters so we can just refer to an individual's "position" withour worrying
@@ -307,13 +342,15 @@ class Position {
   calculateNext() {
     // work out the object's next position based on current state
     var _newCoordinate = this.parent.behaviour.movementFunction(this.parent);
+    // add a small random displacement to every move to avoid things getting stuck
+    _newCoordinate.add(Coordinate.randomDisplacement(this.parent.radius*0.001));
 
     // avoid two objects occupying the same space
     this.parent.parentWorld.individual.forEach(function(that) {
       var _d = this.parent.getDistanceFrom(that);
       if(_d < this.parent.radius + that.radius) {
         // TODO take evasive action
-        console.log('Collision! ' + _d + ' < ' + this.parent.radius + ' + ' + that.radius);
+//        console.log('Collision! ' + _d + ' < ' + this.parent.radius + ' + ' + that.radius);
       }
     }, this);
 
@@ -461,7 +498,7 @@ window.onload = function() {
   var virus = new Virus('Virus1', 0.01, 0.005, 3, 0.15);
 
   // create a new world with individuals populating it
-  document.world = new World('1', 15, 15, 50);
+  document.world = new World('1', 25, 25, 50);
 
   // infect patient zero
   virus.infect(null, document.world.individual[0]);
