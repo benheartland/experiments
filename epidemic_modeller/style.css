@@ -26,3 +26,17 @@ body {
 text {
   font-family: monospace;
 }
+
+.populate-world-dialog * {
+  color: black;
+  background-color: white;
+}
+
+.populate-world-dialog {
+  margin: auto;
+  border-radius: 1em;
+}
+
+.align-right {
+  text-align: right;
+}

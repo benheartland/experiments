@@ -13,7 +13,7 @@ Math.HALF_PI = Math.PI / 2;
 
 // Define a class of "worlds" in which the model will take place
 class World {
-  constructor(_id, _width, _height, _individualCount) {
+  constructor(_id, _width, _height, _callbackFunction = null) {
     // basic properties 
     this.id = 'world-' + _id;
     this.width = _width;
@@ -25,6 +25,87 @@ class World {
     this.flipperOn = 0;
     this.flipperOff = 1;
 
+    // array of individuals populating the world (initially empty)
+    this.individual = new Array();
+
+    // build a user dialog
+    var _dialog = document.createElement('dialog');
+    _dialog.classList.add('populate-world-dialog');
+    _dialog.toptext = document.createElement('p');
+    _dialog.toptext.innerText = 'Number of individuals with each behaviour:';
+    _dialog.appendChild(_dialog.toptext);
+    _dialog.table = document.createElement('table');
+    _dialog.table.tbody = document.createElement('tbody');
+    var _isFirst = true;
+    BEHAVIOUR.forEach(_behaviour => {
+      var _inputId = _behaviour.id + '-number-input';
+      var _row = document.createElement('tr');
+      // table cell containing the input label
+      var _labelCell = document.createElement('td');
+      var _label = document.createElement('label');
+      _label.innerText = _behaviour.displayName + ':';
+      _label.for = _inputId;
+      _labelCell.appendChild(_label);
+      _row.appendChild(_labelCell);
+      // table cell containing the input
+      var _inputCell = document.createElement('td');
+      var _input = document.createElement('input');
+      _input.id = _inputId;
+      _input.name = _inputId;
+      _input.type = 'number';
+      _input.value = '0';
+      _input.min = '0';
+      _input.step ='1';
+      if(_isFirst) {
+        _input.autofocus = 'true';
+        _isFirst = false;
+      }
+      _inputCell.appendChild(_input);
+      _row.appendChild(_inputCell);
+      // add the row to the table
+      _dialog.table.tbody.appendChild(_row);
+    });
+    _dialog.table.appendChild(_dialog.table.tbody);
+    _dialog.appendChild(_dialog.table);
+    //
+    var _goButtonPara = document.createElement('p');
+    _goButtonPara.style.textAlign = 'right';
+    var _goButton = document.createElement('button');
+    _goButton.type = 'submit';
+    _goButton.innerText = 'Go!';
+    _goButtonPara.appendChild(_goButton);
+    _dialog.appendChild(_goButtonPara);
+
+    //
+    document.body.appendChild(_dialog);
+    _dialog.setAttribute('open', 'true');
+
+    // Set up the Go! button's onclick handler
+    _goButton.addEventListener('click',  event => {
+
+      BEHAVIOUR.forEach(_behaviour => {
+        var n = document.getElementById(_behaviour.id + '-number-input').value;
+        // populate the world with individuals
+        for(var i = 0; i < n; i++) {
+          this.addIndividual(_behaviour);
+        }
+      });
+
+      // close the dialog
+      _dialog.close();
+
+      // Set up a space keypress to advance one turn
+      document.addEventListener('keydown', event => {
+        if (event.key == ' ') {
+          document.world.advanceOneTurn();
+        }
+      });
+
+    // execute the callback function if one was passed
+    if(_callbackFunction) {_callbackFunction()}
+
+  })
+
     // draw the diplay for the world
     this.display = World.templateDisplay.cloneNode(true);
     this.display.viewBox.baseVal.x = 0;
@@ -35,19 +116,14 @@ class World {
     // add the display SVG
     document.body.appendChild(this.display);
 
-    // populate the world with individuals
-    this.individual = new Array();
-    for(var i=0; i<_individualCount; i++) {
-      this.addIndividual();
-    }
   }
 
   // TODO: a getter find the maximum transmissionRadius for viruses present in the world
   // get maxTransmissionRadius() {}
 
   // METHODS
-  addIndividual() {
-    this.individual.push( new Individual( this, this.individual.length, false ) );
+  addIndividual(_behaviour = null) {
+    this.individual.push( new Individual( this, this.individual.length, _behaviour ) );
   }
 
   advanceOneTurn() {
@@ -139,13 +215,9 @@ class Infection {
 // Class for describing the behaviour of an individual
 class Behaviour {
 
-  // Pick a random behaviour from those available in the enumeration
-  static getRandomBehaviour() {
-    return Object.values(BEHAVIOURS)[Math.floor( Math.random() * Object.keys(BEHAVIOURS).length )];
-  }
-
-  constructor(_name, _label, _minMaxSpeed, _maxMaxSpeed, _sociability, _movementFunction) {
-    this.name = _name;
+  constructor(_id, _displayName, _label, _minMaxSpeed, _maxMaxSpeed, _sociability, _movementFunction) {
+    this.id = _id;
+    this.displayName = _displayName;
     this.label = _label;
     this.minMaxSpeed = _minMaxSpeed;
     this.maxMaxSpeed = _maxMaxSpeed;
@@ -156,6 +228,11 @@ class Behaviour {
     this.movementFunction = _movementFunction;
   }
 
+  // Pick a random behaviour from those available in the enumeration
+  static getRandomBehaviour() {
+    return Object.values(BEHAVIOUR)[Math.floor( Math.random() * Object.keys(BEHAVIOUR).length )];
+  }
+  
   // get a random speed between minSpeed and maxSpeed
   get randomMaxSpeed() {
     return (this.maxMaxSpeed - this.minMaxSpeed)*Math.random() + this.minMaxSpeed;
@@ -216,16 +293,19 @@ function sociabilityBasedMovementFunction(_object) {
 }
 
 // Enumerate the different behaviours
-const BEHAVIOURS = {
+const BEHAVIOUR = [
+
+  // Distancer: gets as far away as possible from others
+  new Behaviour('distancer', 'Distancer', 'D', 0.05, 0.1, -1, sociabilityBasedMovementFunction),
 
   // StayPut: doesn't move
-  stayPut: new Behaviour('StayPut', 'P', 0, 0, 0, function(_object) {
+  new Behaviour('stayput', 'StayPut', 'P', 0, 0, 0, function(_object) {
     // just return the current position unchanged
     return new Coordinate(_object.position.x, _object.position.y);
   }),
 
   // Wanderer: wanders around uninfluenced by other individuals
-  wanderer: new Behaviour('Wanderer', 'W', 0.1, 0.2, 0, function(_object) {
+  new Behaviour('wanderer', 'Wanderer', 'W', 0.1, 0.2, 0, function(_object) {
     // wanderers travel in a straight line at max speed until they hit the edge of the world
     var _x = _object.position.x;
     var _y = _object.position.y;
@@ -303,13 +383,10 @@ const BEHAVIOURS = {
 
   }),
 
-  // Distancer: gets as far away as possible from others
-  distancer: new Behaviour('Distancer', 'D', 0.05, 0.1, -1, sociabilityBasedMovementFunction),
-
   // Socialiser: goes towards others
-  socialiser: new Behaviour('Socialiser', 'S', 0.05, 0.1, 1, sociabilityBasedMovementFunction)
+  new Behaviour('socialiser', 'Socialiser', 'S', 0.05, 0.1, 1, sociabilityBasedMovementFunction)
 
-}
+];
 
 class Coordinate {
   constructor(x = 0, y = 0) {
@@ -414,50 +491,48 @@ class Position {
 // Define a class of "individual"
 class Individual {
 
-  // constructor function
-  constructor(_world, _id) {
-    //backreference to the world to which this individual belongs
+  // Constructor function
+  constructor(_world, _id, _behaviour = null) {
+    // Backreference to the world to which this individual belongs
     this.parentWorld = _world;
     this.id = _world.id + '-individual-' + _id;
-    // start with the individual alive and uninfected
+    // Start with the individual alive and uninfected
     this.alive = true;
     this.immune = false;
     this.diedOnTurn = null;
-    this.infection = new Array(); // array of the infection this individual currently has (initially empty)
-    // they also have infected or killed any others
+    this.infection = new Array(); // Array of the infection this individual currently has (initially empty)
+    // They also have infected or killed any others
     this.infectedCount = 0;
     this.deathCount = 0;
-    // what kind of behaviour will it have?
-    // TODO: allow this to be influenced by user input to create
-    // different balances of behaviours in a world
 
-    this.behaviour = Behaviour.getRandomBehaviour();
+    // What kind of behaviour will it have? Defaults to a random choice
+    this.behaviour = _behaviour ? _behaviour : Behaviour.getRandomBehaviour();
 
-    // speed and (initial) direction
+    // Speed and (initial) direction
     this.maxSpeed = this.behaviour.randomMaxSpeed;
     this.direction = Math.random() * Math.TWO_PI;
-    // clone the class's template SVG to this individual
+    // Clone the class's template SVG to this individual
     this.glyph = Individual.templateGlyph.cloneNode(true);
     this.width = this.glyph.width.baseVal.valueInSpecifiedUnits;
     this.height = this.glyph.height.baseVal.valueInSpecifiedUnits;
-    // take half width as the radius for purposes of collision detection
+    // Take half width as the radius for purposes of collision detection
     this.radius = this.width/2;
     this.glyph.id = this.id;
-    // set up some accessors for the bits we'll need to change
+    // Set up some accessors for the bits we'll need to change
     this.glyph.backgroundCircle = this.glyph.getElementsByClassName('individual-background-circle').item(0);
     this.glyph.iconTextElement = this.glyph.getElementsByClassName('individual-icon').item(0);
     this.glyph.labelTextElement = this.glyph.getElementsByClassName('individual-label').item(0);
     this.glyph.infectedCountTextElement = this.glyph.getElementsByClassName('individual-infected-count').item(0);
     this.glyph.deathCountTextElement = this.glyph.getElementsByClassName('individual-death-count').item(0);
     this.glyph.title = this.glyph.getElementsByTagName('title').item(0);
-    // pick a random position within the world
+    // Pick a random position within the world
     this.position = new Position(this);
-    // add the individual to the world display
+    // Add the individual to the world display
     this.parentWorld.display.appendChild(this.glyph);
     this.redraw();
   }
 
-  // is the individual currently infected with anything?
+  // Is the individual currently infected with anything?
   get isInfected() {
     return this.infection.filter(i => i.active).length > 0 ? true : false;
   }
@@ -471,12 +546,12 @@ class Individual {
     return '\u{1F642}'
   }
 
-  // the maximum allowed value of position.x for this object
+  // The maximum allowed value of position.x for this object
   get maxX() {
     return this.parentWorld.width - this.width;
   }
 
-  // the maximum allowed value of position.y for this object
+  // The maximum allowed value of position.y for this object
   get maxY() {
     return this.parentWorld.height - this.height;
   }
@@ -495,6 +570,7 @@ class Individual {
     this.glyph.setAttribute('y', this.position.y);
     var statusText = this.alive ? this.isInfected ? ' (infected)' : '' : ' (dead)';
     this.glyph.title.innerHTML = `${this.behaviour.name}${statusText}
+Infected ${this.infection.length} times.
 Caused ${this.infectedCount} infections, of which ${this.deathCount} ended in death.`;
   }
 
@@ -505,6 +581,7 @@ Caused ${this.infectedCount} infections, of which ${this.deathCount} ended in de
     this.diedOnTurn = this.parentWorld.turn;
   }
 
+  // Get the distance from another individual.
   getDistanceFrom(that) {
     var _dx = that.position.x - this.position.x;
     var _dy = that.position.y - this.position.y;
@@ -512,27 +589,27 @@ Caused ${this.infectedCount} infections, of which ${this.deathCount} ended in de
   }
 
   advanceOneTurn() {
-    // for each active infection on this individual, work out what will happen.
+    // For each active infection on this individual, work out what will happen.
     this.infection.filter(i => i.active).forEach(function(_infection) {
 
-      // will any other individuals get infected? Filter out those who are already infected or outside the transmission radius
+      // Will any other individuals get infected? Filter out those who are already infected or outside the transmission radius
       this.parentWorld.individual.filter( that => (!_infection.virus.isInfected(that)) && (this.getDistanceFrom(that) < _infection.virus.transmissionRadius) ).forEach(function(that) {
         if(Math.random() < _infection.virus.transmissionProbability) {
           _infection.virus.infect(this, that);
         }
       }, this);
 
-      // what will be action of the infection on this individual on this turn (e.g. death, recovery, nothing)
+      // What will be the action of the infection on this individual on this turn (e.g. death, recovery, nothing)
       _infection.act();
 
     }, this);
-    // calculate this individual's position on next turn
+    // Calculate this individual's position on next turn
     this.position.calculateNext();
   }
 
 }
 
-// create an instance of a world
+// Create an instance of a world
 window.onload = function() {
   // Clone the template of the SVG for a from the initial document, and add it as
   // a static property of the World class.
@@ -540,24 +617,17 @@ window.onload = function() {
   // Do similar for the 'individual' template 
   Individual.templateGlyph = document.getElementById('template-individual').cloneNode(true);
   // Remove templates from the document. Not strictly necessary because the templates are not
-  // displayed but it keeps the DOM clean
+  // displayed but it keeps the DOM clean.
   document.getElementById('templates').remove();
 
-  // create a virus (name, recoveryProbabilityPerTurn, deathProbabilityPerTurn, transmissionRadius, transmissionProbabilityPerTurn)
-  var virus = new Virus('Virus1', 0.01, 0.005, 3, 0.15);
-
-  // create a new world with individuals populating it
-  document.world = new World('1', 25, 25, 50);
-
-  // infect patient zero
-  virus.infect(null, document.world.individual[0]);
-  document.world.individual[0].redraw();
-
-  // set up a space keypress to advance one turn
-  document.addEventListener("keydown", event => {
-    if (event.key == ' ') {
-      document.world.advanceOneTurn();
-    }
+  // Create a new world
+  document.world = new World('1', 25, 25, function() {
+    // Create a virus (name, recoveryProbabilityPerTurn, deathProbabilityPerTurn, transmissionRadius, transmissionProbabilityPerTurn)
+    var virus = new Virus('Virus1', 0.01, 0.005, 3, 0.15);
+    // Infect patient zero
+    virus.infect(null, document.world.individual[0]);
+    document.world.individual[0].redraw();
   });
+
 
 }
