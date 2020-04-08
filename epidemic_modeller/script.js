@@ -73,25 +73,28 @@ class World {
     var _buttonsContainer = document.createElement('div');
     _buttonsContainer.classList.add('button-container');
     _buttonsContainer.style.textAlign = 'right';
+    // A button to randomise the population-per-behaviour inputs
     var _randomiseButton = document.createElement('button');
     _randomiseButton.type = 'button';
     _randomiseButton.innerText = 'Randomise';
     _randomiseButton.classList.add('float-left');
-    _randomiseButton.addEventListener('click', click => {
+    _randomiseButton.addEventListener('click', event => {
       var _inputHtmlCollection = _dialog.getElementsByClassName('population-per-behaviour-input');
       for(var i = 0; i < _inputHtmlCollection.length; i++) {
-        _inputHtmlCollection.item(i).value = Math.floor(Math.random()*11);
+        _inputHtmlCollection.item(i).value = Math.floor(Math.random() * 31);
       }
     });
     _buttonsContainer.appendChild(_randomiseButton);
+    // The "Go!" button
     var _goButton = document.createElement('button');
     _goButton.type = 'submit';
     _goButton.innerText = 'Go!';
     _buttonsContainer.appendChild(_goButton);
     _dialog.appendChild(_buttonsContainer);
 
-    //
+    // Append the dialog to the document body
     document.body.appendChild(_dialog);
+    // Open the dialog
     _dialog.setAttribute('open', 'true');
 
     // Set up the Go! button's onclick handler
@@ -113,6 +116,7 @@ class World {
         if (event.key == ' ') {
           document.world.advanceOneTurn();
         }
+
       });
 
     // execute the callback function if one was passed
@@ -259,41 +263,49 @@ function sociabilityBasedMovementFunction(_object) {
   var _cumulativeX = 0;
   var _cumulativeY = 0;
   var _sociability = _object.behaviour.sociability;
-  // Cycle through the array of the individuals in the parent world. Exclude dead individuals and
-  // ignore _object among the individuals; we are only interested in *other* individuals
+  // Cycle through the array of the individuals in the parent world. Ignore _object; we are
+  // only interested in *other* individuals
   _object.parentWorld.individual.filter(i => i != _object).forEach(function(_individual) {
-    // work out the vector and absolute distance between the two objects
+    // Work out the vector and absolute distance between the two objects
     var _dx = _individual.position.x - _object.position.x;
     var _dy = _individual.position.y - _object.position.y;
-    // absolute distance between the two objects
+    // Absolute distance between the two objects
     var _d = Math.hypot(_dx, _dy);
-    // _d scaled to sum of the radii of the two objects
-    var _dr = _d/(_object.radius + _individual.radius);
-    // _d scaled to width of the world
-    var _dw = _d/(_object.parentWorld.width);
-    // we need to handle the case when _d == 0
-    if(_d == 0) {
-      // move away as fast as possible in a random direction
-      var _randomDir = Math.TWOPI * Math.random();
-      _cumulativeX += Math.cos(_randomDir) * _object.maxSpeed;
-      _cumulativeY += Math.sin(_randomDir) * _object.maxSpeed;
+    // Sum of their radii
+    var _sumOfRadii = _object.radius + _individual.radius;
+    // 
+    var _diff = _d - _sumOfRadii;
+    var _diffSquared = _diff * _diff;
+    // 
+    var _normalisedDx = _d == 0 ? 0 : _dx/_d;
+    var _normalisedDy = _d == 0 ? 0 : _dy/_d;
+    // Work out how much each individual influences the object.
+    // Handle collisions.
+    // We count the case where _diffSquared == 0 as a collision, since it it crashes the not-collision case
+    if(_diff <= 0 || _diffSquared == 0) {
+      // Handle the case when _d == 0
+      if(_d == 0) {
+        // Move away in a random direction
+        var _randomDir = _sumOfRadii * Math.TWOPI * Math.random();
+        _cumulativeX += Math.cos(_randomDir);
+        _cumulativeY += Math.sin(_randomDir);
+      }
+      // Avoid the other individual (living or dead)
+      else {
+        _cumulativeX += -_sumOfRadii * _normalisedDx;
+        _cumulativeY += -_sumOfRadii * _normalisedDy;
+      }
     }
-    // work out how much each individual influences the object.
-    // social individuals are attracted to those close by but start to repel once they are close
-    // to each other, to avoid them moving on top of each other. They are only attracted to living
-    // individuals but avoid both living and dead
-    else if( _sociability >= 0 ) {
-      var _z = (_individual.alive?1:0)*_sociability/_dw - 25/(_dr*_dr*_dr*_dr);
-      _cumulativeX += _dx * _z;
-      _cumulativeY += _dy * _z;
-    }
-    // anti-social individuals move away from other living individuals, and strongly away from all nearby, living or dead.
-    else if( _sociability < 0) {
-      var _z = (_individual.alive?1:0)*_sociability/_dw - Math.factorial(_object.parentWorld.individual.length)/(_dr*_dr*_dr);
-      _cumulativeX += _dx * _z;
-      _cumulativeY += _dy * _z;
+    // Handle not-collisions
+    // Social individuals move towards other living individuals.
+    // Anti-social individuals move away from other living individuals.
+    else if(_individual.alive && _sociability != 0) {
+      var _z = _sociability * _sumOfRadii / _diffSquared;
+      _cumulativeX += _normalisedDx * _z;
+      _cumulativeY += _normalisedDy * _z;
     }
   });
+
   // set the object's new direction
   if(_cumulativeX == 0) {
     _object.direction = Math.HALF_PI* Math.sign(_cumulativeY);
@@ -355,23 +367,28 @@ const BEHAVIOUR = [
       var _dy = _individual.position.y - _object.position.y;
       // absolute distance between the two objects
       var _d = Math.hypot(_dx, _dy);
-      // _d scaled to sum of the radii of the two objects
-      var _dr = _d/(_object.radius + _individual.radius);
+      // Sum of their radii
+      var _sumOfRadii = _object.radius + _individual.radius;
+      // 
+      var _diff = _d - _sumOfRadii;
+      // 
+      var _normalisedDx = _d == 0 ? 0 : _dx/_d;
+      var _normalisedDy = _d == 0 ? 0 : _dy/_d;
       // work out how much each individual influences the object.
       // only change direction if colliding
-      if(_dr <= 1) {
+      if(_diff <= 0) {
         // handle the case when _d == 0
         if(_d == 0) {
-          // move away as fast as possible in a random direction
+          // move away in a random direction
           var _randomDir = Math.TWOPI * Math.random();
-          _cumulativeX += Math.cos(_randomDir) * _object.maxSpeed;
-          _cumulativeY += Math.sin(_randomDir) * _object.maxSpeed;
+          _cumulativeX += Math.cos(_randomDir) * _sumOfRadii;
+          _cumulativeY += Math.sin(_randomDir) * _sumOfRadii;
         }
-        // avoid other individuals (both living and dead)
+        // avoid the other individual (living or dead)
         else {
-          var _z = - 25/(_dr*_dr*_dr*_dr);
-          _cumulativeX += _dx * _z;
-          _cumulativeY += _dy * _z;
+          var _z = -_sumOfRadii;
+          _cumulativeX += _normalisedDx * _z;
+          _cumulativeY += _normalisedDy * _z;
         }
       }
     });
