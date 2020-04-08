@@ -52,10 +52,12 @@ class World {
       var _input = document.createElement('input');
       _input.id = _inputId;
       _input.name = _inputId;
+      _input.classList.add('population-per-behaviour-input')
       _input.type = 'number';
       _input.value = '0';
       _input.min = '0';
       _input.step ='1';
+      // Start with focus on the first input element
       if(_isFirst) {
         _input.autofocus = 'true';
         _isFirst = false;
@@ -67,14 +69,26 @@ class World {
     });
     _dialog.table.appendChild(_dialog.table.tbody);
     _dialog.appendChild(_dialog.table);
-    //
-    var _goButtonPara = document.createElement('p');
-    _goButtonPara.style.textAlign = 'right';
+    // Buttons
+    var _buttonsContainer = document.createElement('div');
+    _buttonsContainer.classList.add('button-container');
+    _buttonsContainer.style.textAlign = 'right';
+    var _randomiseButton = document.createElement('button');
+    _randomiseButton.type = 'button';
+    _randomiseButton.innerText = 'Randomise';
+    _randomiseButton.classList.add('float-left');
+    _randomiseButton.addEventListener('click', click => {
+      var _inputHtmlCollection = _dialog.getElementsByClassName('population-per-behaviour-input');
+      for(var i = 0; i < _inputHtmlCollection.length; i++) {
+        _inputHtmlCollection.item(i).value = Math.floor(Math.random()*11);
+      }
+    });
+    _buttonsContainer.appendChild(_randomiseButton);
     var _goButton = document.createElement('button');
     _goButton.type = 'submit';
     _goButton.innerText = 'Go!';
-    _goButtonPara.appendChild(_goButton);
-    _dialog.appendChild(_goButtonPara);
+    _buttonsContainer.appendChild(_goButton);
+    _dialog.appendChild(_buttonsContainer);
 
     //
     document.body.appendChild(_dialog);

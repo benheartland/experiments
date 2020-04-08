@@ -1,4 +1,4 @@
-html, body, div#main, svg.world {
+html, body, svg.world {
   height: 100%;
   width: 100%;
   padding: 0;
@@ -29,12 +29,23 @@ text {
 
 .populate-world-dialog * {
   color: black;
-  background-color: white;
 }
 
 .populate-world-dialog {
-  margin: auto;
+  color: black;
+  background-color: lightgray;
+  margin: 2em auto;
+  border: 0.5em solid white;
   border-radius: 1em;
+}
+
+.populate-world-dialog .button-container {
+  margin: 0.25em auto;
+}
+
+
+.float-left {
+  float: left;
 }
 
 .align-right {
