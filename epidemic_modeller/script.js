@@ -7,6 +7,19 @@ Math.factorial = function(n) {
   return result;
 }
 
+// Extend the Array prototype with some handy methods
+Array.prototype.distinct = function() {
+  var _distinct = new Array();
+  this.forEach(function(_value) {
+    if(!_distinct.includes(_value)) _distinct.push(_value);
+  });
+  return _distinct;
+}
+
+Array.prototype.max = function() {
+  return this.reduce((a, b) => Math.max(a, b), 0);
+}
+
 // We'll need 2pi and pi/2 a lot, so save a few cycles by adding them to the Math global object
 Math.TWO_PI = Math.PI * 2;
 Math.HALF_PI = Math.PI / 2;
@@ -111,15 +124,6 @@ class World {
       // close the dialog
       _dialog.close();
 
-      // Set up a space keypress to advance one turn
-      /*
-      document.addEventListener('keydown', event => {
-        if (event.key == ' ') {
-          this.advanceOneTurn();
-        }
-      });
-      */
-
       // execute the callback function if one was passed
       if(_callbackFunction) {_callbackFunction()}
 
@@ -139,12 +143,30 @@ class World {
 
   get diagonalLength() {return Math.hypot(this.width, this.height);}
 
-  // TODO: a getter find the maximum transmissionRadius for viruses present in the world
-  // get maxTransmissionRadius() {}
+  // An array of viruses currently active in the world
+  get activeVirus() {
+    var _activeVirus = new Array();
+    // Cycle through infected individuals
+    this.individual.filter(_individual => _individual.isInfected).forEach(function(_individual) {
+      // For each infected individual, cycle through active infections
+      _individual.infection.filter(_infection => _infection.active).forEach(function(_infection) {
+        // We want the set of distinct viruses that are active in the world. Therefore we only add
+        // a virus to the return output if it is not already present.
+        if(!_activeVirus.includes(_infection.virus)) {_activeVirus.push(_infection.virus)};
+      });
+    });
+    return _activeVirus;
+  }
+
+  // A getter to find the maximum transmissionRadius for viruses active in the world
+  get maxTransmissionRadius() {
+    var _result = this.activeVirus.map(_virus => _virus.transmissionRadius).max();
+    return _result < 1 ? 1 : _result;
+  }
 
   // METHODS
   addIndividual(_behaviour = null) {
-    this.individual.push( new Individual( this, this.individual.length, _behaviour ) );
+    this.individual.push( new Individual(this, this.individual.length, _behaviour) );
   }
 
   advanceOneTurn(timeDiff) {
@@ -304,12 +326,17 @@ function sociabilityBasedMovementFunction(_object, _timeDiff) {
         _cumulativeY += -_normalisedDy * _worldSize;
       }
     }
-    // Handle not-collisions
-    // Social individuals move towards other living individuals.
-    // Anti-social individuals move away from other living individuals.
-    else if(_individual.alive && _sociability != 0) {
-      var _divisor = _sociability > 0 ? _d : 0.25 * _diffSquared;
-      var _z = _sociability * _object.radius / _divisor;
+    // Handle not-collisions. Consider only living individuals.
+    else if(_individual.alive) {
+      var _z = 0;
+      // Social individuals move towards others.
+      if(_sociability > 0) {
+        _z = _sociability * _object.radius / _d;
+      }
+      // Anti-social individuals move away from others.
+      else if (_sociability < 0) {
+        var _z = _sociability * _object.parentWorld.maxTransmissionRadius / _diffSquared;
+      }
       _cumulativeX += _normalisedDx * _z;
       _cumulativeY += _normalisedDy * _z;
     }
@@ -513,15 +540,6 @@ class Position {
     // add a small random displacement to every move to avoid things getting stuck
     _newCoordinate.add(Coordinate.randomDisplacement(this.parent.radius*0.001));
 
-    // avoid two objects occupying the same space
-    this.parent.parentWorld.individual.forEach(function(that) {
-      var _d = this.parent.getDistanceFrom(that);
-      if(_d < this.parent.radius + that.radius) {
-        // TODO take evasive action
-//        console.log('Collision! ' + _d + ' < ' + this.parent.radius + ' + ' + that.radius);
-      }
-    }, this);
-
     // check for positions outside the bounds of the world and bring them back inside
     this.nextX = Math.max(0, Math.min(this.parent.maxX, _newCoordinate[0]));
     this.nextY = Math.max(0, Math.min(this.parent.maxY, _newCoordinate[1]));
@@ -665,7 +683,7 @@ window.onload = function() {
   // Create a new world
   document.world = new World('1', 25, 25, function() {
     // Create a virus (name, recoveryProbabilityPerTurn, deathProbabilityPerTurn, transmissionRadius, transmissionProbabilityPerTurn)
-    var virus = new Virus('Virus1', 0.002, 0.002, 3, 0.01);
+    var virus = new Virus('Virus1', 0.002, 0.002, 4, 0.01);
     // Infect patient zero
     var _randomIndex = Math.floor(Math.random() * document.world.individual.length);
     virus.infect(null, document.world.individual[_randomIndex]);
@@ -673,24 +691,37 @@ window.onload = function() {
     window.requestAnimationFrame(startAnimation);
   });
 
+  var isAnimating = false;
   var lastAnimationFrameTimestamp;
+  // Callback function for requestAnimationFrame(). animationFrameTimestamp is the timestamp passed 
+  // in by requestAnimationFrame(), in milliseconds.
   function animate(animationFrameTimestamp) {
     // work out the time since the last frame (in seconds)
     var animationFrameTimeDiff = (animationFrameTimestamp - lastAnimationFrameTimestamp) * 0.001;
     lastAnimationFrameTimestamp = animationFrameTimestamp;
-    // advance the world one turn. The if guards against against long time diffs due to the user
+    // Advance the world one turn. The "if" guards against against long time diffs due to the user
     // clicking away from the page and returning some time later. Progress will be paused while
     // the window is not visible.
-    if(animationFrameTimeDiff < 0.1) {
-      document.world.advanceOneTurn(animationFrameTimeDiff);;
-    }
-    window.requestAnimationFrame(animate);
+    if(animationFrameTimeDiff < 0.1) document.world.advanceOneTurn(animationFrameTimeDiff);
+    if(isAnimating) window.requestAnimationFrame(animate);
   }
+  // Callback function to kick off animation
   function startAnimation(animationFrameTimestamp) {
+    isAnimating = true;
     lastAnimationFrameTimestamp = animationFrameTimestamp;
     window.requestAnimationFrame(animate);
   }
+  // Stop the animation after the next frame
+  function stopAnimation() {
+    isAnimating = false;
+  }
 
-
+  // set up space bar to start/stop animation
+  window.addEventListener('keydown', event => {
+    if(event.key == ' ') {
+      if(isAnimating) stopAnimation()
+      else startAnimation();  
+    }
+  });
 
 }
