@@ -112,17 +112,18 @@ class World {
       _dialog.close();
 
       // Set up a space keypress to advance one turn
+      /*
       document.addEventListener('keydown', event => {
         if (event.key == ' ') {
-          document.world.advanceOneTurn();
+          this.advanceOneTurn();
         }
-
       });
+      */
 
-    // execute the callback function if one was passed
-    if(_callbackFunction) {_callbackFunction()}
+      // execute the callback function if one was passed
+      if(_callbackFunction) {_callbackFunction()}
 
-  })
+    })
 
     // draw the diplay for the world
     this.display = World.templateDisplay.cloneNode(true);
@@ -136,6 +137,8 @@ class World {
 
   }
 
+  get diagonalLength() {return Math.hypot(this.width, this.height);}
+
   // TODO: a getter find the maximum transmissionRadius for viruses present in the world
   // get maxTransmissionRadius() {}
 
@@ -144,11 +147,11 @@ class World {
     this.individual.push( new Individual( this, this.individual.length, _behaviour ) );
   }
 
-  advanceOneTurn() {
+  advanceOneTurn(timeDiff) {
     // calculate the next state of the world (and things in it)
     // only update individuals who are alive
     this.individual.filter(i => i.alive).forEach(function(i) {
-      i.advanceOneTurn();
+      i.advanceOneTurn(timeDiff);
     });
     // increment the turn count
     this.turn++;
@@ -258,11 +261,14 @@ class Behaviour {
 
 }
 
-function sociabilityBasedMovementFunction(_object) {
+function sociabilityBasedMovementFunction(_object, _timeDiff) {
   // 
   var _cumulativeX = 0;
   var _cumulativeY = 0;
   var _sociability = _object.behaviour.sociability;
+
+  var _worldSize = _object.parentWorld.diagonalLength;
+
   // Cycle through the array of the individuals in the parent world. Ignore _object; we are
   // only interested in *other* individuals
   _object.parentWorld.individual.filter(i => i != _object).forEach(function(_individual) {
@@ -273,34 +279,37 @@ function sociabilityBasedMovementFunction(_object) {
     var _d = Math.hypot(_dx, _dy);
     // Sum of their radii
     var _sumOfRadii = _object.radius + _individual.radius;
-    // 
+    // The edge-to-edge distance between them
     var _diff = _d - _sumOfRadii;
     var _diffSquared = _diff * _diff;
-    // 
+    // Normalised vector components
     var _normalisedDx = _d == 0 ? 0 : _dx/_d;
     var _normalisedDy = _d == 0 ? 0 : _dy/_d;
     // Work out how much each individual influences the object.
     // Handle collisions.
-    // We count the case where _diffSquared == 0 as a collision, since it it crashes the not-collision case
+    // N.B. there may be very small non-zero values of _diff for which _diffSquared is rounded to zero. We
+    // treat the case where _diffSquared == 0 as a collision, since it it crashes the not-collision case 
+    // with a divide-by-zero error.
     if(_diff <= 0 || _diffSquared == 0) {
       // Handle the case when _d == 0
       if(_d == 0) {
         // Move away in a random direction
-        var _randomDir = _sumOfRadii * Math.TWOPI * Math.random();
-        _cumulativeX += Math.cos(_randomDir);
-        _cumulativeY += Math.sin(_randomDir);
+        var _randomDir = Math.TWOPI * Math.random();
+        _cumulativeX += Math.cos(_randomDir) * _worldSize;
+        _cumulativeY += Math.sin(_randomDir) * _worldSize;
       }
       // Avoid the other individual (living or dead)
       else {
-        _cumulativeX += -_sumOfRadii * _normalisedDx;
-        _cumulativeY += -_sumOfRadii * _normalisedDy;
+        _cumulativeX += -_normalisedDx * _worldSize;
+        _cumulativeY += -_normalisedDy * _worldSize;
       }
     }
     // Handle not-collisions
     // Social individuals move towards other living individuals.
     // Anti-social individuals move away from other living individuals.
     else if(_individual.alive && _sociability != 0) {
-      var _z = _sociability * _sumOfRadii / _diffSquared;
+      var _divisor = _sociability > 0 ? _d : 0.25 * _diffSquared;
+      var _z = _sociability * _object.radius / _divisor;
       _cumulativeX += _normalisedDx * _z;
       _cumulativeY += _normalisedDy * _z;
     }
@@ -314,15 +323,16 @@ function sociabilityBasedMovementFunction(_object) {
     _object.direction = Math.atan(_cumulativeY/_cumulativeX) + (Math.sign(_cumulativeX) < 0 ? Math.PI : 0);
   }
   var _speed = Math.min(_object.maxSpeed, Math.hypot(_cumulativeX, _cumulativeY));
+  var _distance = _speed*_timeDiff;
   // return the new position
-  return new Coordinate(Math.cos(_object.direction)*_speed + _object.position.x, Math.sin(_object.direction)*_speed + _object.position.y);
+  return new Coordinate(Math.cos(_object.direction)*_distance + _object.position.x, Math.sin(_object.direction)*_distance + _object.position.y);
 }
 
 // Enumerate the different behaviours
 const BEHAVIOUR = [
 
   // Distancer: gets as far away as possible from others
-  new Behaviour('distancer', 'Distancer', 'D', 0.05, 0.1, -1, sociabilityBasedMovementFunction),
+  new Behaviour('distancer', 'Distancer', 'D', 3, 5, -1, sociabilityBasedMovementFunction),
 
   // StayPut: doesn't move
   new Behaviour('stayput', 'StayPut', 'P', 0, 0, 0, function(_object) {
@@ -331,7 +341,7 @@ const BEHAVIOUR = [
   }),
 
   // Wanderer: wanders around uninfluenced by other individuals
-  new Behaviour('wanderer', 'Wanderer', 'W', 0.1, 0.2, 0, function(_object) {
+  new Behaviour('wanderer', 'Wanderer', 'W', 3, 5, 0, function(_object, _timeDiff) {
     // wanderers travel in a straight line at max speed until they hit the edge of the world
     var _x = _object.position.x;
     var _y = _object.position.y;
@@ -409,13 +419,14 @@ const BEHAVIOUR = [
     // set the object's new direction (which may not have changed)
     _object.direction = _direction;
 
+    var _distance = _speed*_timeDiff;
     // return the new position
-    return new Coordinate(Math.cos(_object.direction)*_speed + _object.position.x, Math.sin(_object.direction)*_speed + _object.position.y);
+    return new Coordinate(Math.cos(_object.direction)*_distance + _object.position.x, Math.sin(_object.direction)*_distance + _object.position.y);
 
   }),
 
   // Socialiser: goes towards others
-  new Behaviour('socialiser', 'Socialiser', 'S', 0.05, 0.1, 1, sociabilityBasedMovementFunction)
+  new Behaviour('socialiser', 'Socialiser', 'S', 3, 5, 1, sociabilityBasedMovementFunction)
 
 ];
 
@@ -496,9 +507,9 @@ class Position {
   // METHODS
 
   // calculate the parent object's position on the next turn
-  calculateNext() {
+  calculateNext(timeDiff) {
     // work out the object's next position based on current state
-    var _newCoordinate = this.parent.behaviour.movementFunction(this.parent);
+    var _newCoordinate = this.parent.behaviour.movementFunction(this.parent, timeDiff);
     // add a small random displacement to every move to avoid things getting stuck
     _newCoordinate.add(Coordinate.randomDisplacement(this.parent.radius*0.001));
 
@@ -600,7 +611,7 @@ class Individual {
     this.glyph.setAttribute('x', this.position.x);
     this.glyph.setAttribute('y', this.position.y);
     var statusText = this.alive ? this.isInfected ? ' (infected)' : '' : ' (dead)';
-    this.glyph.title.innerHTML = `${this.behaviour.name}${statusText}
+    this.glyph.title.innerHTML = `${this.behaviour.displayName}${statusText}
 Infected ${this.infection.length} times.
 Caused ${this.infectedCount} infections, of which ${this.deathCount} ended in death.`;
   }
@@ -619,7 +630,7 @@ Caused ${this.infectedCount} infections, of which ${this.deathCount} ended in de
     return Math.hypot(_dx, _dy);
   }
 
-  advanceOneTurn() {
+  advanceOneTurn(timeDiff) {
     // For each active infection on this individual, work out what will happen.
     this.infection.filter(i => i.active).forEach(function(_infection) {
 
@@ -635,7 +646,7 @@ Caused ${this.infectedCount} infections, of which ${this.deathCount} ended in de
 
     }, this);
     // Calculate this individual's position on next turn
-    this.position.calculateNext();
+    this.position.calculateNext(timeDiff);
   }
 
 }
@@ -654,11 +665,32 @@ window.onload = function() {
   // Create a new world
   document.world = new World('1', 25, 25, function() {
     // Create a virus (name, recoveryProbabilityPerTurn, deathProbabilityPerTurn, transmissionRadius, transmissionProbabilityPerTurn)
-    var virus = new Virus('Virus1', 0.01, 0.005, 3, 0.15);
+    var virus = new Virus('Virus1', 0.002, 0.002, 3, 0.01);
     // Infect patient zero
-    virus.infect(null, document.world.individual[0]);
-    document.world.individual[0].redraw();
+    var _randomIndex = Math.floor(Math.random() * document.world.individual.length);
+    virus.infect(null, document.world.individual[_randomIndex]);
+    document.world.individual[_randomIndex].redraw();
+    window.requestAnimationFrame(startAnimation);
   });
+
+  var lastAnimationFrameTimestamp;
+  function animate(animationFrameTimestamp) {
+    // work out the time since the last frame (in seconds)
+    var animationFrameTimeDiff = (animationFrameTimestamp - lastAnimationFrameTimestamp) * 0.001;
+    lastAnimationFrameTimestamp = animationFrameTimestamp;
+    // advance the world one turn. The if guards against against long time diffs due to the user
+    // clicking away from the page and returning some time later. Progress will be paused while
+    // the window is not visible.
+    if(animationFrameTimeDiff < 0.1) {
+      document.world.advanceOneTurn(animationFrameTimeDiff);;
+    }
+    window.requestAnimationFrame(animate);
+  }
+  function startAnimation(animationFrameTimestamp) {
+    lastAnimationFrameTimestamp = animationFrameTimestamp;
+    window.requestAnimationFrame(animate);
+  }
+
 
 
 }
