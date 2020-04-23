@@ -1,0 +1,25 @@
+body {
+  background: black;
+  color: white;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.audio-tracks {
+  width: min-content;
+}
+
+.audio-tracks tr.selected {
+  background-color: red;
+}
+
+.audio-tracks th {
+  text-align: left;
+}
+
+.audio-tracks td {
+  text-align: right;
+}
+
+table.audio-tracks tr.selected {
+  background-color: darkred;
+}
