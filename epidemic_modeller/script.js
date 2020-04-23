@@ -331,7 +331,7 @@ function sociabilityBasedMovementFunction(_object, _timeDiff) {
       var _z = 0;
       // Social individuals move towards others.
       if(_sociability > 0) {
-        _z = _sociability * _object.radius / _d;
+        _z = _sociability * 5 * _object.radius / _d;
       }
       // Anti-social individuals move away from others.
       else if (_sociability < 0) {
@@ -538,7 +538,7 @@ class Position {
     // work out the object's next position based on current state
     var _newCoordinate = this.parent.behaviour.movementFunction(this.parent, timeDiff);
     // add a small random displacement to every move to avoid things getting stuck
-    _newCoordinate.add(Coordinate.randomDisplacement(this.parent.radius*0.001));
+    _newCoordinate.add(Coordinate.randomDisplacement(this.parent.radius*0.01));
 
     // check for positions outside the bounds of the world and bring them back inside
     this.nextX = Math.max(0, Math.min(this.parent.maxX, _newCoordinate[0]));
@@ -680,17 +680,6 @@ window.onload = function() {
   // displayed but it keeps the DOM clean.
   document.getElementById('templates').remove();
 
-  // Create a new world
-  document.world = new World('1', 25, 25, function() {
-    // Create a virus (name, recoveryProbabilityPerTurn, deathProbabilityPerTurn, transmissionRadius, transmissionProbabilityPerTurn)
-    var virus = new Virus('Virus1', 0.002, 0.002, 4, 0.01);
-    // Infect patient zero
-    var _randomIndex = Math.floor(Math.random() * document.world.individual.length);
-    virus.infect(null, document.world.individual[_randomIndex]);
-    document.world.individual[_randomIndex].redraw();
-    window.requestAnimationFrame(startAnimation);
-  });
-
   var isAnimating = false;
   var lastAnimationFrameTimestamp;
   // Callback function for requestAnimationFrame(). animationFrameTimestamp is the timestamp passed 
@@ -715,6 +704,18 @@ window.onload = function() {
   function stopAnimation() {
     isAnimating = false;
   }
+
+  // Create a new world
+  document.world = new World('1', 25, 25, function() {
+    // Create a virus (name, recoveryProbabilityPerTurn, deathProbabilityPerTurn, transmissionRadius, transmissionProbabilityPerTurn)
+    var virus = new Virus('Virus1', 0.002, 0.002, 4, 0.01);
+    // Infect patient zero
+    var _randomIndex = Math.floor(Math.random() * document.world.individual.length);
+    virus.infect(null, document.world.individual[_randomIndex]);
+    document.world.individual[_randomIndex].redraw();
+    // start the animation.
+    window.requestAnimationFrame(startAnimation);
+  });
 
   // set up space bar to start/stop animation
   window.addEventListener('keydown', event => {
