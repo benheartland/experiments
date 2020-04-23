@@ -22,6 +22,7 @@ class AudioInputDevicesMediaStreamTrackCollection {
   constructor(_successCallbackFunction = null, _failureCallbackFunction = null) {
     this.item = new Array();
     var _audioInputDevicesList = null;
+    var _getUserMediaPromiseList = new Array();
 
     var _thisAudioInputDevicesMediaStreamTrackCollection = this;
     // List the audio devices
@@ -32,17 +33,19 @@ class AudioInputDevicesMediaStreamTrackCollection {
       // Cycle through audio input devices
       _audioInputDevicesList.forEach(function(_device) {
         // Request access to the device's audio input stream
-        navigator.mediaDevices.getUserMedia({audio: {deviceId: _device.deviceId}})
-        .then(function(_mediaStream) {
-          // Cycle through the stream's audio tracks
-          _mediaStream.getAudioTracks().forEach(function(_track) {
-            _thisAudioInputDevicesMediaStreamTrackCollection.item.push(_track);
+        _getUserMediaPromiseList.push(
+          navigator.mediaDevices.getUserMedia({audio: {deviceId: _device.deviceId}})
+          .then(function(_mediaStream) {
+            // Cycle through the stream's audio tracks
+            _mediaStream.getAudioTracks().forEach(function(_track) {
+              _thisAudioInputDevicesMediaStreamTrackCollection.item.push(_track);
+            })
           })
-        })
-        .catch(function(_err) {
-          console.log('Error getting user media for device with id ' + _device.deviceId);
-          console.error(_err);
-        })
+          .catch(function(_err) {
+            console.log('Error getting user media for device with id ' + _device.deviceId);
+            console.error(_err);
+          })
+        );
       })
     })
     .catch(function(_err) {
@@ -51,12 +54,15 @@ class AudioInputDevicesMediaStreamTrackCollection {
       // If _failureCallbackFunction is defined, call it
       if(_failureCallbackFunction) _failureCallbackFunction();
     })
-    // TODO: get the coonstructor to wait until all getUserMedia promises have been resolved before running this block
     .finally(function() {
-      // If this has returned at least one track and _successCallbackFunction is defined, call it
-      if(_thisAudioInputDevicesMediaStreamTrackCollection.length > 0 && _successCallbackFunction) _successCallbackFunction()
-      // Otherwise, if _failureCallbackFunction is defined, call it
-      else if(_failureCallbackFunction) _failureCallbackFunction(); 
+      // Wait until all the getUserMediaPromises have been settled
+      Promise.allSettled(_getUserMediaPromiseList)
+      .then(function() {
+        // If this has returned at least one track and _successCallbackFunction is defined, call it
+        if(_thisAudioInputDevicesMediaStreamTrackCollection.length > 0 && _successCallbackFunction) _successCallbackFunction()
+        // Otherwise, if _failureCallbackFunction is defined, call it
+        else if(_failureCallbackFunction) _failureCallbackFunction(); 
+      })
     });
 
   }
@@ -94,10 +100,9 @@ class AudioInputDevicesMediaStreamTrackSelector {
     this.onSelectionChange = _onSelectionChangeFunction;
     // A container <div>
     var _container = document.body.appendChild(document.createElement('div'));
-    
+    _container.classList.add('audio-track-selector');
     // Set up a table to display the available inputs
     var _table = _container.appendChild(document.createElement('table'));
-    _table.classList.add('audio-tracks');
     // table header
     var _thead = _table.createTHead();
     var _hRow = _thead.appendChild(document.createElement('tr'));
@@ -118,7 +123,7 @@ class AudioInputDevicesMediaStreamTrackSelector {
       var _trackSettings = _track.getSettings();
       // Output the settings to a new row in the table
       var _row = _tbody.appendChild(document.createElement('tr'));
-      _row.insertCell().innerText = _track.label;
+      _row.insertHeaderCell().innerText = _track.label;
       _row.insertCell().innerText = _trackSettings.channelCount;
       _row.insertCell().innerText = _trackSettings.sampleRate/1000;
       _row.insertCell().innerText = _trackSettings.sampleSize;
