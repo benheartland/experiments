@@ -43,6 +43,8 @@ class MediaDeviceList {
     this.item = new Array();
     // An array of dependent objects. Any with
     this.dependents = new Array();
+    // Has the user been asked to for permission to access the device?
+    this.hasAccessBeenRequested = false;
   }
 
   // length property
@@ -116,12 +118,15 @@ class AudioInputDevicesMediaStreamTrackCollection {
 
   constructor(_mediaDeviceList) {
     this.mediaDeviceList = _mediaDeviceList;
+    this.mediaDeviceList.registerDependent(this);
+    // List to hold the tracks
     this.item = new Array();
-    // an array of objects that are dependent on this. If the object has an update() method, it will be called
+    // list of deviceIds of media devices for access permission has been given 
+    this.approvedMediaDeviceIds = new Array();
+    // An array of objects that are dependent on this. If the object has an update() method, it will be called
     // when this object's update() method is called. 
     this.dependents = new Array();
     // Register this track collection as a dependent of its Device List
-    this.mediaDeviceList.registerDependent(this);
   }
 
   // the length property
@@ -165,25 +170,35 @@ class AudioInputDevicesMediaStreamTrackCollection {
     // Array of getUserMedia promises
     var _getUserMediaPromiseList = new Array();
     // TODO: change this so that (a) it works and (b) getUserMedia() is called only when a new tracks is added
-    // Clear the track list (TODO: lose this line)
-    this.clear();
-    // Cycle through audio input devices
+
+    // Cycle through the track list, deleting any whose parent device has been removed
+    // TODO
+//    this.item.forEach(function(_item, index) {if })
+
+    // Cycle through available audio input devices
     this.mediaDeviceList.forEach(function(_device) {
-      // Request access to the device's audio input stream
-      _getUserMediaPromiseList.push(
-        navigator.mediaDevices.getUserMedia({audio: {deviceId: _device.deviceId}})
-        .then(function(_mediaStream) {
-          // Cycle through the stream's audio tracks
-          _mediaStream.getAudioTracks().forEach(function(_track) {
-            // add the track to the collection
-            _this.item.push(_track);
+      // Only request access to the device if it has not been requested before
+      if(!_device.hasAccessBeenRequested) {
+        // Set hasAccessBeenRequested = true. Note that it does not matter whether permission is granted or not -
+        // we are simply noting that permission has already been requested. Whether it was granted or denied, we
+        // will not ask again.
+        _device.hasAccessBeenRequested = true;
+        // Request access to the device's audio input stream
+        _getUserMediaPromiseList.push(
+          navigator.mediaDevices.getUserMedia({audio: {deviceId: _device.deviceId}})
+          .then(function(_mediaStream) {
+            // Cycle through the stream's audio tracks
+            _mediaStream.getAudioTracks().forEach(function(_track) {
+              // add the track to the collection
+              _this.item.push(_track);
+            })
           })
-        })
-        .catch(function(_err) {
-          console.log('Error getting user media for device with id ' + _device.deviceId);
-          console.error(_err);
-        })
-      );
+          .catch(function(_err) {
+            console.log('Error getting user media for device with id ' + _device.deviceId);
+            console.error(_err);
+          })
+        );
+      }
     })
 
     // Wait until all the getUserMediaPromises have been settled
