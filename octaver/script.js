@@ -108,8 +108,14 @@ class MediaDeviceList {
     .then(function(_devices) {
       // restrict the enumerated devices to the specified kind (if any is specified). Exclude default and communications devices (these will be listed as physical devices anyway)
       _devices = _devices.filter( _device => !(MediaDeviceList.excludeDeviceIds.includes(_device.deviceId)) && (!_thisMediaDeviceList.kind || _device.kind === _thisMediaDeviceList.kind) );
-      // Remove existing devices that are not in the new array
-      _thisMediaDeviceList.item.filter( _item => !(_devices.map(d => d.deviceId).includes(_item.deviceId)) ).forEach( function(_item, _index) {_thisMediaDeviceList.item.splice(_index, 1)} );
+      // Remove existing devices that are not in the new array. Iterated backwards over the array so that removed items do not affect counting.
+      var i = _thisMediaDeviceList.length;
+      while(i > 0) {
+        i--;
+        if(!( _devices.map(d => d.deviceId).includes(_thisMediaDeviceList.item[i].deviceId ))) {
+          _thisMediaDeviceList.item.splice(i, 1);
+        }
+      }
       // Add new devices that are not already in the existing array
       _devices.filter( _device => !(_thisMediaDeviceList.item.map(i => i.deviceId).includes(_device.deviceId)) ).forEach( function(_device) {
         // Add an array to the device; this will be used to access the tracks associated with it
@@ -139,18 +145,20 @@ class MediaDeviceList {
             _thisMediaDeviceList.item.push(_device);
           })
         );
-        // once all getUserMedia promises have been settled, call the update() method of any dependants.
-        Promise.allSettled(_getUserMediaPromiseList)
-        .then(function() {
-          // Call the update() method of any dependent objects that have one
-          _thisMediaDeviceList.dependents.filter( _object => typeof(_object.update) === 'function' ).forEach( function(_object) {_object.update()} );
-        });
       });
 
     })
     .catch(function(_err) {
         console.log('Error enumerating media devices.');
         throw _err;
+    })
+    .finally(function() {
+      // once all getUserMedia promises have been settled, call the update() method of any dependants.
+      Promise.allSettled(_getUserMediaPromiseList)
+      .then(function() {
+        // Call the update() method of any dependent objects that have one
+        _thisMediaDeviceList.dependents.filter( _object => typeof(_object.update) === 'function' ).forEach( function(_object) {_object.update()} );
+      });
     })
   }
 
