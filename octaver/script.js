@@ -1,11 +1,3 @@
-/* TODO:
-// Extend MediaDeviceInfo
-// Has the user been asked to for permission to access the device?
-MediaDeviceInfo.prototype.hasAccessBeenRequested = false;
-// Has access been given?
-MediaDeviceInfo.prototype.hasAccessBeenGranted = false;
-*/
-
 // Outputs a number followed by the appropriate singular/plural noun.
 // n: the number
 // singular: the singular form of the noun
@@ -46,7 +38,7 @@ class MediaDeviceList {
   static excludeDeviceIds = ['default', 'communications'];
 
   constructor(_kind) {
-    // What kind of media devices does this list contain (videoinput, audioinput, audiooutput, null => all devices)
+    // What kind of media devices will this list contain? [ 'videoinput' | 'audioinput' | 'audiooutput' | null ] (null => all devices)
     this.kind = _kind;
     this.item = new Array();
     // An array of dependent objects. Any with an update() method will have it called when the update() method of this object is called
@@ -100,6 +92,7 @@ class MediaDeviceList {
 
   // Update the media device list
   update() {
+    var returnPromise;
     console.log('MediaDeviceList.update() called');
     var _thisMediaDeviceList = this;
     var _getUserMediaPromiseList = new Array();
@@ -108,7 +101,7 @@ class MediaDeviceList {
     .then(function(_devices) {
       // restrict the enumerated devices to the specified kind (if any is specified). Exclude default and communications devices (these will be listed as physical devices anyway)
       _devices = _devices.filter( _device => !(MediaDeviceList.excludeDeviceIds.includes(_device.deviceId)) && (!_thisMediaDeviceList.kind || _device.kind === _thisMediaDeviceList.kind) );
-      // Remove existing devices that are not in the new array. Iterated backwards over the array so that removed items do not affect counting.
+      // Remove existing devices that are not in the new array. Iterate backwards over the array so that removed items do not affect counting.
       var i = _thisMediaDeviceList.length;
       while(i > 0) {
         i--;
@@ -120,10 +113,14 @@ class MediaDeviceList {
       _devices.filter( _device => !(_thisMediaDeviceList.item.map(i => i.deviceId).includes(_device.deviceId)) ).forEach( function(_device) {
         // Add an array to the device; this will be used to access the tracks associated with it
         _device.trackList = new Array();
+        // Construct the constraints object to use when requesting user media access
+        // TODO: Generalise this to include video tracks, according to the "kind" property
+        var _constraints = new Object();
+        _constraints.audio = standardAudioConstraints;
+        _constraints.audio.deviceId = _device.deviceId;
         // request access to the media device
         _getUserMediaPromiseList.push(
-          // TODO: Generalise this to include video tracks, according to the "kind" property
-          navigator.mediaDevices.getUserMedia( {audio: {deviceId: _device.deviceId}} )
+          navigator.mediaDevices.getUserMedia(_constraints)
           // if access is granted, the getUserMedia() promise resolves to a mediaStream object
           .then(function(_mediaStream) {
             // Flag that access has been granted to the device
@@ -153,13 +150,17 @@ class MediaDeviceList {
         throw _err;
     })
     .finally(function() {
-      // once all getUserMedia promises have been settled, call the update() method of any dependants.
-      Promise.allSettled(_getUserMediaPromiseList)
+      // Once all getUserMedia promises have been settled, call the update() method of any dependants. Return the
+      // aggregrated promise so that further actions can be taken off it.
+      returnPromise = Promise.allSettled(_getUserMediaPromiseList)
       .then(function() {
         // Call the update() method of any dependent objects that have one
         _thisMediaDeviceList.dependents.filter( _object => typeof(_object.update) === 'function' ).forEach( function(_object) {_object.update()} );
-      });
-    })
+      })
+    });
+    console.log('returnPromise:');
+    console.log(returnPromise);
+    return returnPromise;
   }
 
   // the onmediadevicechange method for this object
@@ -247,12 +248,16 @@ class AudioInputDevicesMediaStreamTrackSelector {
 
 window.onload = function() {
 
+  // create an audio context
+  window.audioCtx = new window.AudioContext();
+
   // Create an audio input device list object (not yet populated)
   window.audioInputMediaDeviceList = new MediaDeviceList('audioinput');
-  // register the device list in the onMediaDeviceChangeList
+  // Register the device list in the onMediaDeviceChangeList
   window.onMediaDeviceChangeList.push(window.audioInputMediaDeviceList);
-  // update the audio input device list
-  window.audioInputMediaDeviceList.update();
+  // Update the audio input device list
+  window.audioInputMediaDeviceList.update()
+  audioCtx.resumeIfSuspended();
 
   // Make a selector for the audio input track collection.
   // create a track selector
@@ -266,31 +271,5 @@ window.onload = function() {
 //      mediaStreamTrackSourceNode = audioCtx.createMediaStreamTrackSource(selector.selectedTrack);
     }
   );
-
-  // Populate the audio input device list
-//  window.audioInputMediaDeviceList.update();
-
-/*
-
-  .then(
-
-    // success callback function
-      function() {
-
-        // create an AudioContext
-        var audioCtx = new AudioContext();
-
-        // initialise a variable for a MediaStreamTrackSourceNode
-        var mediaStreamTrackSourceNode;
-      }
-      // failure callback function
-      ,function() {
-        // TODO: say/do something more useful here
-        alert('Something went wrong!')
-      }
-    )
-  )
-
-*/
-
+  
 };

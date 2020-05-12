@@ -1,5 +1,23 @@
+// Polyfill for the AudioContext class
+if(typeof(AudioContext) === 'undefined') {
+  if(typeof(webkitAudioContext) === 'undefined') {
+    throw new Error('Browser does not support AudioContext or webkitAudioContext');
+  }
+  else {
+    AudioContext = webkitAudioContext;
+  }
+}
+
+// Extend AudioContext with a resumeIfSuspended() method.
+// Returns the resume() promise, which resolves when the AudioContext resumes.
+AudioContext.prototype.resumeIfSuspended = function() {
+  if (this.state === 'suspended') {
+    return this.resume()
+  }
+}
+
 // Polyfill for the MediaStreamTrackAudioSourceNode class
-if(typeof(MediaStreamTrackAudioSourceNode) == 'undefined') {
+if(typeof(MediaStreamTrackAudioSourceNode) === 'undefined') {
   function MediaStreamTrackAudioSourceNode(context, options) {
     console.log(options.mediaStreamTrack);
     return context.createMediaStreamSource(new MediaStream([options.mediaStreamTrack]));
@@ -7,7 +25,7 @@ if(typeof(MediaStreamTrackAudioSourceNode) == 'undefined') {
 }
 
 // Polyfill for the AudioContext.createMediaStreamTrackSource() method.
-if(typeof(AudioContext.prototype.createMediaStreamTrackSource) == 'undefined') {
+if(typeof(AudioContext.prototype.createMediaStreamTrackSource) === 'undefined') {
   AudioContext.prototype.createMediaStreamTrackSource = function(_mediaStreamTrack) {
     var _options = {mediaStreamTrack: _mediaStreamTrack};
     return new MediaStreamTrackAudioSourceNode(this, _options);
@@ -15,7 +33,7 @@ if(typeof(AudioContext.prototype.createMediaStreamTrackSource) == 'undefined') {
 }
 
 // Polyfill for the HTMLCollection.forEach() method.
-if(typeof(HTMLCollection.prototype.forEach) == 'undefined') {
+if(typeof(HTMLCollection.prototype.forEach) === 'undefined') {
   HTMLCollection.prototype.forEach = function(_callback) {
     for(var i = 0; i < this.length; i++) {
       _callback(this.item(i));
@@ -26,7 +44,7 @@ if(typeof(HTMLCollection.prototype.forEach) == 'undefined') {
 // HTML Table polyfills
 
 // HTMLTableElement.createTBody() - this is an HTML5 recommendation
-if(typeof(HTMLTableElement.prototype.createTBody) == 'undefined') {
+if(typeof(HTMLTableElement.prototype.createTBody) === 'undefined') {
   HTMLTableElement.prototype.createTBody = function() {
     return this.appendChild(document.createElement('tbody'));
   }
@@ -34,7 +52,7 @@ if(typeof(HTMLTableElement.prototype.createTBody) == 'undefined') {
 
 // HTMLTableRowElement.insertHeaderCell() - not really a polyfill. This method
 // does for <th> header cells what insertCell() does for <td> data cells.
-if(typeof(HTMLTableRowElement.prototype.insertHeaderCell) == 'undefined') {  
+if(typeof(HTMLTableRowElement.prototype.insertHeaderCell) === 'undefined') {  
   HTMLTableRowElement.prototype.insertHeaderCell = function(_index = -1) {
     // Piggyback on the insertCell() method to first create a <td> cell.
     // Doing this ensures that any an invalid index value will cause an
