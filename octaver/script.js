@@ -113,11 +113,21 @@ class MediaDeviceList {
       _devices.filter( _device => !(_thisMediaDeviceList.item.map(i => i.deviceId).includes(_device.deviceId)) ).forEach( function(_device) {
         // Add an array to the device; this will be used to access the tracks associated with it
         _device.trackList = new Array();
-        // Construct the constraints object to use when requesting user media access
-        // TODO: Generalise this to include video tracks, according to the "kind" property
+        // Construct the constraints object to use when requesting user media access. This will vary 
+        // according to the 'kind' property of the MediaDeviceList
         var _constraints = new Object();
-        _constraints.audio = standardAudioConstraints;
-        _constraints.audio.deviceId = _device.deviceId;
+        if(_thisMediaDeviceList.kind.startsWith('audio') || _thisMediaDeviceList.kind === null) {
+          _constraints.audio = standardAudioConstraints;
+          _constraints.audio.deviceId = _device.deviceId;
+        } else {
+          _constraints.audio = false;
+        }
+        if(_thisMediaDeviceList.kind.startsWith('video') || _thisMediaDeviceList.kind === null) {
+          // TODO: Possibly add some standard video constraints
+          _constraints.video.deviceId = _device.deviceId;  
+        } else {
+          _constraints.video = false;
+        }
         // request access to the media device
         _getUserMediaPromiseList.push(
           navigator.mediaDevices.getUserMedia(_constraints)
