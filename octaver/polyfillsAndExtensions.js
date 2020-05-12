@@ -1,3 +1,8 @@
+// Add a deep clone static method to JSON
+JSON.deepCloneObject = function(_object) {
+  return JSON.parse(JSON.stringify(_object));
+}
+
 // Polyfill for the AudioContext class
 if(typeof(AudioContext) === 'undefined') {
   if(typeof(webkitAudioContext) === 'undefined') {
