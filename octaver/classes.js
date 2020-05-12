@@ -160,7 +160,7 @@ class MediaDeviceList {
     this.update();
   }
 
-}
+} // end of MediaDeviceList class declaration
 
 class AudioInputDevicesMediaStreamTrackSelector {
 
@@ -236,4 +236,4 @@ class AudioInputDevicesMediaStreamTrackSelector {
     )
   }
 
-} // end of AudioInputsSelector class declaration
+} // end of AudioInputDevicesMediaStreamTrackSelector class declaration
