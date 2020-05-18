@@ -6,19 +6,7 @@ function plural(n, singular, plural = singular + 's') {
   return n == 1 ? n + ' ' + singular : n + ' ' + plural;
 }
 
-// Set up an array of objects that will be looped over on media device change.
-// If an object in the list has a onmediadevicechange() method, it will be called.
-window.onMediaDeviceChangeList = new Array();
-// Event listener that will loop over objects registered in onMediaDeviceChangeList() and call their onmediadevicechange() method, if it exists
-navigator.mediaDevices.ondevicechange = function() {
-  // DEBUG
-  console.log('mediaDevices.ondevicechange called')
-  // loop through the objects in onMediaDeviceChangeList
-  window.onMediaDeviceChangeList
-    // For each object, check that onmediadevicechange exists and is a function, then execute it
-    .filter( function(_object) {return typeof(_object.onmediadevicechange) === 'function' } )
-    .forEach( function(_object) {_object.onmediadevicechange()} );
-}
+navigator.mediaDevices.addEventListener('devicechange', function() {console.log('** Media devices changed ***');})
 
 window.onload = function() {
 
@@ -27,11 +15,11 @@ window.onload = function() {
 
   // Create an audio input device list object (not yet populated)
   window.audioInputMediaDeviceList = new MediaDeviceList('audioinput');
-  // Register the device list in the onMediaDeviceChangeList
-  window.onMediaDeviceChangeList.push(window.audioInputMediaDeviceList);
   // Update the audio input device list
-  window.audioInputMediaDeviceList.update()
-  audioCtx.resumeIfSuspended();
+  window.audioInputMediaDeviceList.update();
+
+  // resume the audio context if it is suspended, e.g. because of a no-autoplay client policy.
+//  window.audioCtx.resumeIfSuspended();
 
   // Make a selector for the audio input track collection.
   // create a track selector

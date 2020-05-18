@@ -24,6 +24,9 @@ class MediaDeviceList {
     this.item = new Array();
     // An array of dependent objects. Any with an update() method will have it called when the update() method of this object is called
     this.dependents = new Array();
+    // register a MediaDevices event listener to update the list when media devices change.
+    var _thisMediaDeviceList = this;
+    navigator.mediaDevices.addEventListener('devicechange', function() {_thisMediaDeviceList.onmediadevicechange()});
   }
 
   // length property
@@ -72,26 +75,33 @@ class MediaDeviceList {
   }
 
   // Update the media device list
+  // TODO: this has stopped working on media device change - fix it
   update() {
-    var returnPromise;
-    console.log('MediaDeviceList.update() called');
+
+    var _returnPromise;
     var _thisMediaDeviceList = this;
     var _getUserMediaPromiseList = new Array();
+
     // enumerateDevices promise
     navigator.mediaDevices.enumerateDevices()
     .then(function(_devices) {
+
       // restrict the enumerated devices to the specified kind (if any is specified). Exclude default and communications devices (these will be listed as physical devices anyway)
       _devices = _devices.filter( _device => !(MediaDeviceList.excludeDeviceIds.includes(_device.deviceId)) && (!_thisMediaDeviceList.kind || _device.kind === _thisMediaDeviceList.kind) );
+
       // Remove existing devices that are not in the new array. Iterate backwards over the array so that removed items do not affect counting.
       var i = _thisMediaDeviceList.length;
       while(i > 0) {
         i--;
-        if(!( _devices.map(d => d.deviceId).includes(_thisMediaDeviceList.item[i].deviceId ))) {
+        if(!( _devices.map(d => d.deviceId).includes(_thisMediaDeviceList.item[i].deviceId))) {
           _thisMediaDeviceList.item.splice(i, 1);
         }
       }
       // Add new devices that are not already in the existing array
-      _devices.filter( _device => !(_thisMediaDeviceList.item.map(i => i.deviceId).includes(_device.deviceId)) ).forEach( function(_device) {
+      _devices
+        .filter( _device => !(_thisMediaDeviceList.item.map(d => d.deviceId).includes(_device.deviceId)) )
+        .forEach( function(_device) {
+
         // Add an array to the device; this will be used to access the tracks associated with it
         _device.trackList = new Array();
         // Construct the constraints object to use when requesting user media access. This will vary 
@@ -100,16 +110,19 @@ class MediaDeviceList {
         if(_thisMediaDeviceList.kind.startsWith('audio') || _thisMediaDeviceList.kind === null) {
           // Uses the deepCloneObject() JSON method extension
           _constraints.audio = JSON.deepCloneObject(MediaDeviceList.standardAudioConstraints);
-          _constraints.audio.deviceId = _device.deviceId;
+          if (_device.deviceId) _constraints.audio.deviceId = _device.deviceId;
+          if (_device.groupId) _constraints.audio.groupId = _device.groupId;
         } else {
           _constraints.audio = false;
         }
         if(_thisMediaDeviceList.kind.startsWith('video') || _thisMediaDeviceList.kind === null) {
           // TODO: Possibly add some standard video constraints
-          _constraints.video.deviceId = _device.deviceId;
+          if (_device.deviceId) _constraints.video.deviceId = _device.deviceId;
+          if (_device.groupId) _constraints.video.groupId = _device.groupId;
         } else {
           _constraints.video = false;
         }
+
         // request access to the media device
         _getUserMediaPromiseList.push(
           navigator.mediaDevices.getUserMedia(_constraints)
@@ -144,15 +157,12 @@ class MediaDeviceList {
     .finally(function() {
       // Once all getUserMedia promises have been settled, call the update() method of any dependants. Return the
       // aggregrated promise so that further actions can be taken off it.
-      returnPromise = Promise.allSettled(_getUserMediaPromiseList)
+      _returnPromise = Promise.allSettled(_getUserMediaPromiseList)
       .then(function() {
         // Call the update() method of any dependent objects that have one
         _thisMediaDeviceList.dependents.filter( _object => typeof(_object.update) === 'function' ).forEach( function(_object) {_object.update()} );
       })
     });
-    console.log('returnPromise:');
-    console.log(returnPromise);
-    return returnPromise;
   }
 
   // the onmediadevicechange method for this object
@@ -198,7 +208,7 @@ class AudioInputDevicesMediaStreamTrackSelector {
   } // end of constructor
 
   update() {
-    console.log('AudioInputDevicesMediaStreamTrackSelector.update() called');
+
     // a references required inside the forEach()
     var _thisSelector = this;
     var _selectedTrack = this.selectedTrack;
