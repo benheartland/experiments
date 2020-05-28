@@ -15,6 +15,19 @@ JSON.deepCloneObject = function(_object) {
   return JSON.parse(JSON.stringify(_object));
 }
 
+// Extend AudioContext with a getter to report output latency (or base latency if outputLatency
+// is not supported)
+Object.defineProperty(AudioContext.prototype, 'outputOrBaseLatencyString', {get: function() {
+  if (typeof(this.outputLatency) === 'number') {
+    return 'Output latency: ' + (this.outputLatency*1000) + 'ms';
+  } 
+  if (typeof(this.baseLatency) === 'number') {
+    return 'Base latency: ' + (this.baseLatency*1000) + 'ms';
+  }
+  return 'Output/Base latency not available';
+
+}})
+
 // Extend AudioContext with a resumeIfSuspended() method.
 AudioContext.prototype.resumeIfSuspended = function() {
   switch (this.state) {

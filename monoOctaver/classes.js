@@ -15,14 +15,14 @@ class AudioContextUI {
     var _thisAudioContextUI = this;
 
     // 
-    let _div = document.createElement('div');
-    _div.innerText = 'Audio context is ';
+    let _statusDiv = document.createElement('div');
+    _statusDiv.innerText = 'Audio context is ';
     this.statusDisplaySpan = document.createElement('span');
-    _div.appendChild(this.statusDisplaySpan);
+    _statusDiv.appendChild(this.statusDisplaySpan);
     // Add a toggle button to suspend/resume the audio context
     this.suspendResumeToggleButton = document.createElement('button');
-    _div.appendChild(window.audioCtx.UI.suspendResumeToggleButton);
-    document.body.appendChild(_div);
+    _statusDiv.appendChild(window.audioCtx.UI.suspendResumeToggleButton);
+    document.body.appendChild(_statusDiv);
 
     // The listener for click events on the toggle button
     this.suspendResumeToggleButton.addEventListener('click', function() {
@@ -47,6 +47,9 @@ class AudioContextUI {
       }
     });
 
+    this.notesDiv = document.createElement('div');
+    document.body.appendChild(this.notesDiv);
+
     // update this UI
     this.update();
 
@@ -54,6 +57,7 @@ class AudioContextUI {
 
   update() {
     this.statusDisplaySpan.innerText = this.associatedAudioContext.state;
+    this.notesDiv.innerText = this.associatedAudioContext.outputOrBaseLatencyString;
     switch(this.associatedAudioContext.state) {
       case 'running':
         this.suspendResumeToggleButton.innerText = AudioContextUI.suspendResumeToggleButtonRunningText;
