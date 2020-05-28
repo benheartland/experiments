@@ -1,40 +1,43 @@
 class AudioContextUI {
 
-  constructor(associatedAudioContext) {
+  static suspendResumeToggleButtonRunningText = 'Suspend';
+  static suspendResumeToggleButtonSuspendedText = 'Resume';
+  static suspendResumeToggleButtonClosedText = 'n/a';
+  
+  constructor(_associatedAudioContext) {
 
-    this.associatedAudioContext = associatedAudioContext;
-    
+    // Add the associated audio context as a property of this UI 
+    this.associatedAudioContext = _associatedAudioContext;
+    // Add the UI as a property of the associated audio context
+    _associatedAudioContext.UI = this;
+
+    // Reference to this UI used later in this constructor
+    var _thisAudioContextUI = this;
+
+    // 
+    let _div = document.createElement('div');
+    _div.innerText = 'Audio context is ';
+    this.statusDisplaySpan = document.createElement('span');
+    _div.appendChild(this.statusDisplaySpan);
     // Add a toggle button to suspend/resume the audio context
     this.suspendResumeToggleButton = document.createElement('button');
+    _div.appendChild(window.audioCtx.UI.suspendResumeToggleButton);
+    document.body.appendChild(_div);
 
-    this.suspendResumeToggleButton.update = function() {
-      switch(associatedAudioContext.state) {
-        case 'running':
-          this.innerText = 'Suspend audio context';
-          break;
-        case 'suspended':
-          this.innerText = 'Resume audio context';
-          break;
-        case 'closed':
-          this.innerText = 'Audio context closed';
-          this.disabled = true;
-          break;
-        default:
-          throw Error('Audio context state not recognised');
-      }
-    }
-
-    this.suspendResumeToggleButton.update();
-
+    // The listener for click events on the toggle button
     this.suspendResumeToggleButton.addEventListener('click', function() {
-      switch(associatedAudioContext.state) {
+      switch(_thisAudioContextUI.associatedAudioContext.state) {
         case 'running':
-          associatedAudioContext.suspend()
-          .then(this.update());
+          _thisAudioContextUI.associatedAudioContext.suspend()
+          .then(function() {
+            _thisAudioContextUI.update()
+          });
           break;
         case 'suspended':
-          associatedAudioContext.resume()
-          .then(this.update());
+          _thisAudioContextUI.associatedAudioContext.resume()
+          .then(function() {
+            _thisAudioContextUI.update()
+          });
           break;
         case 'closed':
           console.log('Audio context already closed');
@@ -44,20 +47,49 @@ class AudioContextUI {
       }
     });
 
+    // update this UI
+    this.update();
+
+  }
+
+  update() {
+    this.statusDisplaySpan.innerText = this.associatedAudioContext.state;
+    switch(this.associatedAudioContext.state) {
+      case 'running':
+        this.suspendResumeToggleButton.innerText = AudioContextUI.suspendResumeToggleButtonRunningText;
+        break;
+      case 'suspended':
+        this.suspendResumeToggleButton.innerText = AudioContextUI.suspendResumeToggleButtonSuspendedText;
+        break;
+      case 'closed':
+        this.suspendResumeToggleButton.innerText = AudioContextUI.suspendResumeToggleButtonClosedText;
+        this.suspendResumeToggleButton.disabled = true;
+        break;
+      default:
+        throw Error('Audio context state not recognised');
+    }
   }
 
 }
 
 // We'd prefer to declare this class as an extension of HTMLDivElement but creating HTML
 // elements with the "new" keyword is illegal, so we use an old-style "function" declaration
-function AudioNodeUI(_audioNode) {
+function AudioNodeUI(_audioNode, _title = _audioNode.constructor.name) {
 
   var _div = document.createElement('div');
   _div.id = Date.now() + '_' + generateID();
   _div.classList.add('audio-node-ui');
 
-  // register the UI as a property of the parent AudioNode
+  var _titleDiv = document.createElement('div');
+  _titleDiv.classList.add('title');
+  _titleDiv.innerText = _title;
+  _div.appendChild(_titleDiv);
+
+  // register the UI as a property of the associated AudioNode
   _audioNode.UI = _div;
+  // register the associated AudioNode as a property of this UI
+  this.associatedAudioNode = _audioNode;
+
   // A table to hold the controls
   var _controlTable = document.createElement('table');
   _div.appendChild(_controlTable);

@@ -3,7 +3,6 @@ window.onload = function() {
   // create an audio context
   window.audioCtx = new AudioContext();
   window.audioCtx.UI = new AudioContextUI(window.audioCtx);
-  document.body.appendChild(window.audioCtx.UI.suspendResumeToggleButton);
 
   window.audioCtx.audioWorklet.addModule('monoOctaver.js')
   .then(function() {
