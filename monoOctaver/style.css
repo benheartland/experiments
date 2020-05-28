@@ -1,0 +1,42 @@
+body {
+  background: black;
+  color: white;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.audio-track-selector {
+  width: min-content;
+  border: 1px solid white;
+  padding: 1em;
+  border-radius: 1em;
+}
+
+.audio-track-selector table {
+  border-collapse: collapse;
+}
+
+.audio-track-selector th, .audio-track-selector td {
+  padding: 0.2em;
+  border: 1px gray;
+  border-style: solid dashed;
+}
+
+.audio-track-selector thead th {
+  text-align: left;
+  vertical-align: bottom;
+  border-top: none;
+}
+
+.audio-track-selector tr > *:first-child {
+  text-align: left;
+  border-left: none;
+}
+
+.audio-track-selector td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.audio-track-selector tbody tr.selected {
+  background-color: darkred;
+}
