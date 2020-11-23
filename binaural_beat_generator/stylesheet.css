@@ -1,0 +1,140 @@
+/* Font size set here determines the "rem" unit */
+html {
+  font-size: 20pt;
+}
+
+body {
+  color: #000000;
+  background-color: #fcfcfc;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button {
+  height: 1rem;
+}
+
+/***********/
+/* Sliders */
+/***********/
+
+table.slider-table {
+  width: 100%;
+}
+
+.slider {
+  position: relative;
+  border: 1px solid black;
+  background-color: white;
+  height: 1rem;
+  width: 600px;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.slider-inner {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: -1px;
+  bottom: -1px;
+}
+
+.slider-track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 1rem;
+}
+
+.slider-handle {
+  position: absolute;
+  height: 100%;
+  width: 1rem;
+  background-color: #909090;
+  cursor: grab;
+  background-image: url('sliderHandleBackground.svg');
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+/* Slider handle whilst grabbed */
+.slider-handle.sliding {
+  background-color: #a07070;
+  cursor: grabbing;
+}
+
+.slider-scale-label {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.5rem;
+  font-weight: 200;
+  position: absolute;
+  bottom: 100%;
+  width: 1rem;
+  text-align: center;
+  overflow-x: visible;
+  background-image: url('sliderLabelBackground.svg');
+  background-repeat: no-repeat;
+  background-position: bottom center;
+}
+/* These next two make the label text centered when it overflows its div */
+.slider-scale-label:before {
+  content: "";
+  margin-left: -100%;
+}
+.slider-scale-label:after {
+  content: "";
+  margin-right: -100%;
+}
+
+
+/* Special styling for the binaural beat frequncy slider */
+#binaural-beat-frequency>.slider {
+  background: transparent;
+}
+
+/*
+#binaural-beat-frequency>.slider>.slider-inner {
+  background-color: orange;
+}
+
+#binaural-beat-frequency .slider-track {
+  background-color: black;
+}
+*/
+
+#binaural-beat-frequency-slider-background {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 20%;
+  height: 60%;
+}
+
+#binaural-beat-frequency-slider-background-left {
+  background-image: url("brainWaveFrequencyBackgroundLeft.svg");
+  background-repeat: repeat-y;
+  height: 100%;
+  position: absolute;
+  left: 0;
+  width: 0.6em;
+}
+
+#binaural-beat-frequency-slider-background-right {
+  background-image: url("brainWaveFrequencyBackgroundRight.svg");
+  background-repeat: repeat-y;
+  height: 100%;
+  position: absolute;
+  right: 0;
+  width: 0.6em;
+}
+
+/* Background image for the beat frequency slider */
+#binaural-beat-frequency-slider-background-centre {
+  background-image: url("brainWaveFrequencyBackgroundCentre.svg");
+  background-repeat: repeat-y;
+  height: 100%;
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+}

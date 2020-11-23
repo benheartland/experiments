@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 42 1" preserveAspectRatio="none">
+
+  <rect id="low-infra" x="0"   width="0.5" height="1" fill="black" />
+  <rect id="delta"     x="0.5" width="2.5" height="1" fill="darkblue" />
+  <rect id="theta"     x="3"   width="5"   height="1" fill="darkgreen" />
+  <rect id="alpha"     x="8"   width="4"   height="1" fill="green" />
+  <rect id="lo-beta"   x="12"  width="3"   height="1" fill="yellowgreen" />
+  <rect id="beta"      x="15"  width="7"   height="1" fill="yellow" />
+  <rect id="hi-beta"   x="22"  width="16"  height="1" fill="goldenrod" />
+  <rect id="gamma"     x="38"  width="4"   height="1" fill="orange" />
+
+  <text text-anchor="middle" x="1.75" width="2.5" y="70%" height="1" font-size="0.75" fill="white">&#x3B8;</text>
+  <text text-anchor="middle" x="5.5"  width="5"   y="70%" height="1" font-size="0.75" fill="white">&#x3B4;</text>
+  <text text-anchor="middle" x="10"   width="4"   y="70%" height="1" font-size="0.75" fill="white">&#x3B1;</text>
+  <text text-anchor="middle" x="13.5" width="3"   y="70%" height="1" font-size="0.75">Lo-&#x3B2;</text>
+  <text text-anchor="middle" x="18.5" width="7"   y="70%" height="1" font-size="0.75">&#x3B2;</text>
+  <text text-anchor="middle" x="30"   width="16"  y="70%" height="1" font-size="0.75">Hi-&#x3B2;</text>
+  <text text-anchor="middle" x="40"   width="4"   y="70%" height="1" font-size="0.75">&#x3B3;</text>
+
+</svg>
