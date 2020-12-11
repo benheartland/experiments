@@ -1,0 +1,23 @@
+<html>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="style.css" />
+</html>
+<body>
+  <img id="theImage" src="https://api.deckchair.com/v1/viewer/camera/58b9530b90edad536d9a4a1e?format=jpg&panelMode=true" />
+  <script>
+    var image = document.getElementById('theImage');
+    var baseUrl = image.src;
+    var refreshTimeInterval_ms = 300000;
+    var refreshTimeLag_ms = 30000;
+    // Refresh the image when it updates every 5 minutes (= 300'000 ms)
+    function refreshImage() {
+      var now = new Date;
+      console.log('Refreshing at: ' + now.toTimeString())
+      image.src = baseUrl + '&cacheBusterTimestamp=' + now.getTime();
+    }
+    // Time the first refresh exactly on a five minute division of the hour, plus one minute to allow for latency, then set up following refreshes at five minute intervals.
+    var now = new Date;
+    var timeUntilFirstRefresh = refreshTimeInterval_ms - ((now.getMinutes()*60000 + now.getSeconds()*1000 + now.getMilliseconds()) % refreshTimeInterval_ms) + refreshTimeLag_ms;
+    setTimeout(function() {refreshImage(); setInterval(refreshImage, refreshTimeInterval_ms)}, timeUntilFirstRefresh)
+  </script>
+</body>
