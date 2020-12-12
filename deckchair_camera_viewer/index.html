@@ -12,7 +12,7 @@
     // Refresh the image
     function refreshImage() {
       var now = new Date;
-      console.log('Refreshing at: ' + now.toTimeString())
+      console.log('Refreshing at: ' + now.toTimeString());
       image.src = cameraUrl + cacheBusterJoiner + 'cacheBusterTimestamp=' + now.getTime();
     }
 
