@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="style.css" />
+  <title>Deckchair.com Camera Viewer</title>
+</head>
+<body>
+  <img id="theImage" />
+  <script>
+
+    // Refresh the image
+    function refreshImage() {
+      var now = new Date;
+      console.log('Refreshing at: ' + now.toTimeString())
+      image.src = baseUrl + cacheBusterJoiner + 'cacheBusterTimestamp=' + now.getTime();
+    }
+
+    var image = document.getElementById('theImage');
+    // Base URL of the camera viewer resource of the deckchair.com API
+    var baseUrl = 'https://api.deckchair.com/v1/viewer/camera/';
+    // Get URL params
+    var params = (new URL(window.location.toString())).searchParams;
+    var cameraId = params.get('camera_id');
+    params.delete('camera_id');
+    // TODO: handle a missing camera_id
+    var refreshTimeInterval_ms = params.get('refresh_interval');
+    refreshTimeInterval_ms = refreshTimeInterval_ms ? refreshTimeInterval_ms : 300000;
+    params.delete('refresh_interval');
+    var refreshTimeLag_ms = params.get('refresh_lag');
+    var refreshTimeLag_ms = refreshTimeLag_ms ? refreshTimeLag_ms : 30000;
+    params.delete('refresh_lag');
+    // Pass remaining URL parameters through to the deckchair.com API
+    var passthroughParamString = '?' + params.toString();
+    var cameraUrl = baseUrl + cameraId + passthroughParamString;
+    var cacheBusterJoiner = passthroughParamString == '?' ? '' : '&'
+
+    refreshImage()
+
+    // Time the first refresh exactly on a division of the hour, plus lag to allow for offset & latency, then set up following refreshes at the refresh interval.
+    var now = new Date;
+    var timeUntilFirstRefresh = refreshTimeInterval_ms - ((now.getMinutes()*60000 + now.getSeconds()*1000 + now.getMilliseconds()) % refreshTimeInterval_ms) + refreshTimeLag_ms;
+    setTimeout(function() {refreshImage(); setInterval(refreshImage, refreshTimeInterval_ms)}, timeUntilFirstRefresh)
+
+  </script>
+</body>
+</html>
