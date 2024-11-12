@@ -176,7 +176,7 @@ function updateClock() {
 	if (document.body.classList) {			// most browsers
 		document.getElementById('step_' + previousStep).classList.remove('currentStep');
 		document.getElementById('step_' + currentStep).classList.add('currentStep');
-	} else if (document.body.className) {	// IE<=9 
+	} else if (document.body.className) {	// IE<=9
 		document.getElementById('step_' + previousStep).className.replace(' currentStep', '');
 		document.getElementById('step_' + currentStep).className += ' currentStep';
 	}
@@ -290,18 +290,26 @@ function drawGrid() {
 	// stop the clock (if it is running)
 	stopClock();
 
-	// recalculate stepCount, .
-	stepCount = ticksPerBeat*beatsPerBar*barsPerCycle;
-	currentStep = stepCount;								// pretend that a cycle just completed
 	stepDisplayWidth = (100/stepCount) + "%";
 	// refresh the step Array
 	step = new Array();
-	for (i=1; i<= stepCount; i++) {
-		// create the step object for each step
-		step[i] = new Object();
-		// create the actionList array for each step
-		step[i].actionList = new Array();
+	stepCount = 0;
+	for (var barNumber = 1; barNumber <= barsPerCycle; barNumber++) {
+		for (var beatNumber = 1; beatNumber <= beatsPerBar; beatNumber++) {
+			for (var tickNumber = 1; tickNumber <= ticksPerBeat; tickNumber++) {
+				// Increment stepCount
+				stepCount++;
+				// create the step object for each step
+				step[stepCount] = new Object();
+				// create the actionList array for each step
+				step[stepCount].actionList = new Array();
+				step[stepCount].barNumber = barNumber;
+				step[stepCount].beatNumber = beatNumber;
+				step[stepCount].tickNumber = tickNumber;
+			}
+		}
 	}
+	currentStep = stepCount; // pretend that a cycle just completed
 
 	// destroy any existing grid display
 	document.getElementById('grid_container').innerHTML = '';
@@ -322,22 +330,20 @@ function drawGrid() {
 	gridHeadRulerRowHeader = document.createElement('th');
 	gridHeadRulerRowHeader.className = 'grid-row-header';
 	gridHeadRulerRow.appendChild(gridHeadRulerRowHeader);
-	var stepPointer = 1;
-	for (var i = 1; i <= barsPerCycle; i++) {
-		for (var j = 1; j <= beatsPerBar; j++) {
-			for (var k = 1; k <= ticksPerBeat; k++) {
-				var gridHeadRulerStep = document.createElement('th');
-				gridHeadRulerStep.id = 'step_' + stepPointer;
-				gridHeadRulerStep.className = 'step';
-				if (k == 1) {
-					gridHeadRulerStep.textContent = i + "." + j;
-				}
-				gridHeadRulerRow.appendChild(gridHeadRulerStep);
-				// advance step pointer
-				stepPointer++;
+	step.forEach(
+		function(stepInstance, stepIndex) {
+			var gridHeadRulerStep = document.createElement('th');
+			gridHeadRulerStep.id = 'step_' + (stepIndex);
+			gridHeadRulerStep.className = 'step';
+			if (stepInstance.beatNumber == 1 && stepInstance.tickNumber == 1) {
+				gridHeadRulerStep.className = 'step first_of_bar';
 			}
+			if (stepInstance.tickNumber == 1) {
+				gridHeadRulerStep.textContent = stepInstance.barNumber + "." + stepInstance.beatNumber;
+			}
+			gridHeadRulerRow.appendChild(gridHeadRulerStep);
 		}
-	}
+	);
 	gridHead.appendChild(gridHeadRulerRow);
 
 	// build the grid body
@@ -345,84 +351,91 @@ function drawGrid() {
 	gridTable.appendChild(gridBody);
 
 	// cycle through each instrument...
-	ensemble.forEach(function(instrumentInstance, instrumentIndex) {
-		var noteRowNumber = 0;
-		// ... and each note of each instrument...
-		instrumentInstance.note.forEach(function(noteInstance, noteNumber) {
-			// ...building one row of the sequencer grid each time.
-			noteRowNumber++;
-			var gridBodyNoteRow = document.createElement('tr');
-			// on the last row to be added for this instrument (i.e. top row for this instrument in the table)...
-			if (noteRowNumber == instrumentInstance.noteCount) {
-				// (1) add a multi-row header cell for the instrument.
-				var gridBodyInstrumentHeader = document.createElement('th');
-				gridBodyInstrumentHeader.rowSpan = instrumentInstance.noteCount;
-				gridBodyInstrumentHeader.className = 'grid-instrument-header';
-				var paragraph = document.createElement('p');
-				paragraph.textContent = instrumentInstance.name
-				gridBodyInstrumentHeader.appendChild(paragraph);
-				gridBodyNoteRow.appendChild(gridBodyInstrumentHeader);
-				// (2) 
-				gridBodyNoteRow.style.borderTopWidth = '5px';
-			}
-			var gridBodyNoteRowHeader = document.createElement('th');
-			gridBodyNoteRowHeader.className = 'grid-row-header';
-			gridBodyNoteRowHeader.textContent = noteInstance.displayName;
-			gridBodyNoteRow.appendChild(gridBodyNoteRowHeader);
-			// construct each row by cycling through the steps.
-			step.forEach(function(stepInstance,stepIndex) {
-				var gridBodyNoteStep = document.createElement('td');
-				gridBodyNoteStep.id = constructGridId(stepIndex, instrumentIndex, noteNumber);
-				gridBodyNoteStep.className = 'step';
-
-				// set mousedown event handler for each grid table cell.
-				gridBodyNoteStep.onmousedown = function(mouseDownEvent) {
-					if (mouseDownEvent.button == 0) {			// left mouse button
-						var initialX = mouseDownEvent.clientX;
-						var initialY = mouseDownEvent.clientY;
-						var initialVelocity = getNoteOnVelocity(stepIndex, instrumentIndex, noteNumber);
-						// display an empty div in front of the whole body to prevent anything being selected
-						document.getElementById('full-body-overlay').style.display = 'block';
-						// if no Note On event already exists, create one and enter dragging state immediately
-						if (initialVelocity < 0) {			// i.e. no Note On event exists
-							initialVelocity = getInputVelocity();
-							window.dragState = 'on';
-							setNoteOnEvent(stepIndex, instrumentIndex, noteNumber, initialVelocity);
-						// else enter pre-drag state. If still in this state when the mouse button is released, the Note On event will be deleted.
-						} else {
-							window.dragState = 'pre';
+	ensemble.forEach(
+		function(instrumentInstance, instrumentIndex) {
+			var noteRowNumber = 0;
+			// ... and each note of each instrument...
+			instrumentInstance.note.forEach(function(noteInstance, noteNumber) {
+				// ...building one row of the sequencer grid each time.
+				noteRowNumber++;
+				var gridBodyNoteRow = document.createElement('tr');
+				// on the last row to be added for this instrument (i.e. top row for this instrument in the table)...
+				if (noteRowNumber == instrumentInstance.noteCount) {
+					// (1) add a multi-row header cell for the instrument.
+					var gridBodyInstrumentHeader = document.createElement('th');
+					gridBodyInstrumentHeader.rowSpan = instrumentInstance.noteCount;
+					gridBodyInstrumentHeader.className = 'grid-instrument-header';
+					var paragraph = document.createElement('p');
+					paragraph.textContent = instrumentInstance.name
+					gridBodyInstrumentHeader.appendChild(paragraph);
+					gridBodyNoteRow.appendChild(gridBodyInstrumentHeader);
+					// (2) Make the top border wider to separate it from the instrument or header row above
+					gridBodyNoteRow.style.borderTopWidth = '5px';
+				}
+				var gridBodyNoteRowHeader = document.createElement('th');
+				gridBodyNoteRowHeader.className = 'grid-row-header';
+				gridBodyNoteRowHeader.textContent = noteInstance.displayName;
+				gridBodyNoteRow.appendChild(gridBodyNoteRowHeader);
+				// construct each row by cycling through the steps.
+				step.forEach(
+					function(stepInstance, stepIndex) {
+						var gridBodyNoteStep = document.createElement('td');
+						gridBodyNoteStep.id = constructGridId(stepIndex, instrumentIndex, noteNumber);
+						gridBodyNoteStep.className = 'step';
+						if(stepInstance.beatNumber == 1 && stepInstance.tickNumber == 1) {
+							gridBodyNoteStep.className = 'step first_of_bar';
 						}
-						// set the handler for mousemove events across the whole window (as may drag beyond the grid table cell)
-						window.onmousemove = function(mouseMoveEvent) {
-							window.dragState = 'on';
-							var newVelocity = clipInt0to127(initialVelocity - mouseMoveEvent.clientY + initialY); 
-							setNoteOnVelocity(stepIndex, instrumentIndex, noteNumber, newVelocity);
-						};
 
-						// set the handler for mouseup events across the document body (as may drag beyond the grid table cell)
-						window.onmouseup = function(mouseUpEvent) {
-							if (mouseUpEvent.button == 0) {
-								// if still in pre-drag state, delete the note. 
-								if (window.dragState == 'pre') {
-									unsetNoteOnEvent(stepIndex, instrumentIndex, noteNumber);
+						// set mousedown event handler for each grid table cell.
+						gridBodyNoteStep.onmousedown = function(mouseDownEvent) {
+							if (mouseDownEvent.button == 0) {			// left mouse button
+								var initialX = mouseDownEvent.clientX;
+								var initialY = mouseDownEvent.clientY;
+								var initialVelocity = getNoteOnVelocity(stepIndex, instrumentIndex, noteNumber);
+								// display an empty div in front of the whole body to prevent anything being selected
+								document.getElementById('full-body-overlay').style.display = 'block';
+								// if no Note On event already exists, create one and enter dragging state immediately
+								if (initialVelocity < 0) {			// i.e. no Note On event exists
+									initialVelocity = getInputVelocity();
+									window.dragState = 'on';
+									setNoteOnEvent(stepIndex, instrumentIndex, noteNumber, initialVelocity);
+								// else enter pre-drag state. If still in this state when the mouse button is released, the Note On event will be deleted.
+								} else {
+									window.dragState = 'pre';
 								}
-								// exit dragging state
-								window.dragState = 'off';
-								// unset mousemove and mouseup handlers.
-								window.onmousemove = null;
-								window.onmouseup = null;
-								document.getElementById('full-body-overlay').style.display = 'none';
+								// set the handler for mousemove events across the whole window (as may drag beyond the grid table cell)
+								window.onmousemove = function(mouseMoveEvent) {
+									window.dragState = 'on';
+									var newVelocity = clipInt0to127(initialVelocity - mouseMoveEvent.clientY + initialY);
+									setNoteOnVelocity(stepIndex, instrumentIndex, noteNumber, newVelocity);
+								};
 
+								// set the handler for mouseup events across the document body (as may drag beyond the grid table cell)
+								window.onmouseup = function(mouseUpEvent) {
+									if (mouseUpEvent.button == 0) {
+										// if still in pre-drag state, delete the note.
+										if (window.dragState == 'pre') {
+											unsetNoteOnEvent(stepIndex, instrumentIndex, noteNumber);
+										}
+										// exit dragging state
+										window.dragState = 'off';
+										// unset mousemove and mouseup handlers.
+										window.onmousemove = null;
+										window.onmouseup = null;
+										document.getElementById('full-body-overlay').style.display = 'none';
+
+									}
+								}
 							}
 						}
-					}
-				}
 
-				gridBodyNoteRow.appendChild(gridBodyNoteStep);
+						gridBodyNoteRow.appendChild(gridBodyNoteStep);
+					}
+				);
+				gridBody.insertBefore(gridBodyNoteRow, gridBody.firstChild);
 			});
-			gridBody.insertBefore(gridBodyNoteRow, gridBody.firstChild);
-		});
-	});
+		}
+	);
 
 	// insert the grid into the document
 	document.getElementById('grid_container').appendChild(gridTable);
@@ -450,7 +463,7 @@ function updateGridTableCellDisplay(stepNumber, instrumentIndex, noteNumber, vel
 		gridTableCell.style.backgroundColor = '';
 		gridTableCell.textContent = '';
 	} else {
-		// zero or positive values of velocity update the background colour of the cell and the number displayed in it. 
+		// zero or positive values of velocity update the background colour of the cell and the number displayed in it.
 		gridTableCell.style.backgroundColor = convertVelocityToBackgroundColor(velocity);
 		gridTableCell.textContent = velocity.toString();
 	}

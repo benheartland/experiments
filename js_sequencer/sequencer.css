@@ -118,11 +118,16 @@ table#grid_table>tbody>tr {
 
 table#grid_table .step {
 	width: auto;
-	text-align: right;
 	padding-right: 3px;
 	vertical-align: middle;
 	overflow: hidden;
 }
+
+table#grid_table .first_of_bar {
+	border-left-color: rgb(144,144,192);
+	border-left-width: 2px;
+}
+
 
 table#grid_table tr>th.grid-row-header {
 	width: 7em;
