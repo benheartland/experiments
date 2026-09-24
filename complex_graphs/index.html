@@ -1,0 +1,122 @@
+<html>
+    <head>
+        <title>Complex graphing</title>
+    </head>
+    <script src="MathExtensions.js"></script>
+    <script src="complex.js"></script>
+    <script src="color.js"></script>
+    <!-- ImageData object -->
+    <script id="image-data">
+        
+    </script>
+    <style>
+        #main-canvas {
+            border: 1px solid #c0c0c0;
+        }
+    </style>
+    <body>
+        <!-- Canvas -->
+        <canvas id="main-canvas" width="720" height="720"></canvas>
+        <!-- Main script -->
+        <script id="main-script">
+
+            function complexFunction(z) {
+                return Complex.fromPolar(1.0, z.re * z.im);
+            }
+
+            var mainCanvas = document.getElementById('main-canvas');
+            mainCanvas.TwoDContext = mainCanvas.getContext('2d');
+            mainCanvas.imageDataBuffer = mainCanvas.TwoDContext.createImageData(mainCanvas.width, mainCanvas.height);
+            mainCanvas.renderImageDataBuffer = function () {
+                this.TwoDContext.putImageData(mainCanvas.imageDataBuffer, 0, 0);
+            }
+
+            mainCanvas.imageDataBuffer.setPixelFromRgb = function (x, y, rgb) {
+                if(!rgb instanceof Rgb) {
+                    throw Error(`Input of type '${Object.getPrototypeOf(rgb)}' given; Rgb color value expected.`);
+                }
+                var index = (y*this.width + x) * 4;
+                this.data[index] = rgb.r;   // Red channel
+                this.data[++index] = rgb.g; // Green channel
+                this.data[++index] = rgb.b; // Blue channel
+                this.data[++index] = 255;   // Alpha channel
+            }
+
+            mainCanvas.imageDataBuffer.setPixelFromHsv = function (x, y, hsv) {
+                if(!hsv instanceof Hsv) {
+                    throw Error(`Input of type '${Object.getPrototypeOf(hsv)}' given; Hsv color value expected.`);
+                }
+                this.setPixelFromRgb(x, y, hsv.toRgb());
+            }
+
+            function complexToHsv(z) {
+                // Complex argument is undefined at zero. Handle this by returning black.
+                if(z.re == 0.0 && z.im == 0.0) {
+                    return new Hsv(0, 0, 0);
+                }
+                // General case
+                // Convert complex argument [-π, π] to hue [0,1)
+                var h = z.arg / Math.TWOPI;
+                if(h < 0.0) {
+                    h += 1.0;
+                }
+                else if(h >= 1.0) {
+                    h -= 1.0;
+                }
+                // Convert complex magnitude [0,) to value [0,1]
+                var v = Math.clamp(z.abs, 0.0, 1.0);
+                // Return a HSV value representing the complex number
+                return new Hsv(h, 1, v);
+            }
+
+            function populateImageDate() {
+                var buffer = mainCanvas.imageDataBuffer;
+                var scaleFactor = 16/buffer.width;
+                var xOffset = Math.round(buffer.width/2.0)
+                var yOffset = Math.round(buffer.height/2.0)
+                for(x = 0; x < buffer.width; x++) {
+                    for(y = 0; y < buffer.height; y++) {
+                        var c = new Complex((x - xOffset) * scaleFactor, (y - yOffset) * scaleFactor);
+                        z = complexFunction(c);
+                        buffer.setPixelFromHsv(x, y, complexToHsv(z));
+                    }
+                }
+            }
+
+            console.log('Populate');
+            populateImageDate();
+            console.log('Render');
+            mainCanvas.renderImageDataBuffer();
+
+        </script>
+        <!-- Testing script -->
+        <!--
+        <script id="test-script">
+
+            var x = new Complex(1,1);
+            console.log(x instanceof Complex);
+            console.log(`x = ${x.toString()}`);
+            console.log(`|x| = ${x.abs.toString()}`);
+            console.log(`arg(x) = ${x.arg.toString()}`);
+            console.log(`Conjugate: ${x.conjugate.toString()}`);
+            console.log(`Reciprocal: ${x.reciprocal.toString()}`);
+            console.log(`Sqrt: ${x.sqrt.toString()}`);
+
+            var y = new Complex(2);
+            console.log(`y = ${y.toString()}`);
+            console.log(y instanceof Complex);
+            console.log(`|y| = ${y.abs.toString()}`);
+            console.log(`arg(y) = ${y.arg.toString()}`);
+            console.log(`Conjugate: ${Complex.conjugate(y).toString()}`);
+            console.log(`Reciprocal: ${Complex.reciprocal(y).toString()}`);
+            console.log(`Sqrt: ${Complex.sqrt(y).toString()}`);
+
+            console.log(`x + y = ${Complex.add(x, y)}`);
+            console.log(`x - y = ${Complex.subtract(x, y)}`);
+            console.log(`x * y = ${Complex.multiply(x, y)}`);
+            console.log(`x / y = ${Complex.divide(x, y)}`);
+
+        </script>
+        -->
+    </body>
+</html>
